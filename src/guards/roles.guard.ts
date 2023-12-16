@@ -4,45 +4,47 @@ import {
   ExecutionContext,
   ForbiddenException,
   UnauthorizedException,
+  Inject,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { Observable } from 'rxjs';
+
+export interface RolesGuardConfig {
+  getUserRoles: (context: ExecutionContext) => Promise<string[]> | string[];
+}
 
 @Injectable()
 export class RolesGuard implements CanActivate {
-  constructor(private readonly reflector: Reflector) {}
+  static RolesGuardConfigKey = 'NestKit:RolesGuardConfig';
 
-  canActivate(
-    context: ExecutionContext
-  ): boolean | Promise<boolean> | Observable<boolean> {
+  constructor(
+    private readonly reflector: Reflector,
+
+    @Inject(RolesGuard.RolesGuardConfigKey)
+    private readonly config: RolesGuardConfig,
+  ) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     // Get roles
     const ctrlRoles = this.reflector.get<string[]>('roles', context.getClass());
-    const handlerRoles = this.reflector.get<string[]>(
-      'roles',
-      context.getHandler()
-    );
+    const handlerRoles = this.reflector.get<string[]>('roles', context.getHandler());
 
     if (!ctrlRoles && !handlerRoles) {
       return true;
     }
-    const request = context.switchToHttp().getRequest();
     // Logged user roles
-    const userRoles: string[] = request?.session?.user?.roles || [];
+    const userRoles: string[] = await this.config.getUserRoles(context);
 
     // no roles
     if (!userRoles || userRoles.length === 0) {
       throw new UnauthorizedException();
     }
 
-    const canVisitCtrl =
-      !userRoles ||
-      userRoles.some((x: string) => (ctrlRoles || []).includes(x));
+    const canVisitCtrl = !userRoles || userRoles.some((x: string) => (ctrlRoles || []).includes(x));
     if (!canVisitCtrl) {
       throw new ForbiddenException();
     }
 
-    const canVisitHandler =
-      !handlerRoles || userRoles.some((x: string) => handlerRoles.includes(x));
+    const canVisitHandler = !handlerRoles || userRoles.some((x: string) => handlerRoles.includes(x));
     if (!canVisitHandler) {
       throw new ForbiddenException();
     }
