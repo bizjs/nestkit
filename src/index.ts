@@ -3,7 +3,7 @@ export { Roles } from './decorators/roles.decorator';
 export { PureResponse } from './decorators/pure-response.decorator';
 
 // Guards
-export { RolesGuard, RolesGuardConfig } from './guards/roles.guard';
+export { RolesGuard, IRolesGuardConfig } from './guards/roles.guard';
 
 // Interceptors
 export { ResponseTransformInterceptor } from './intercepters/response-transform.interceoter';

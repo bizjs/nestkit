@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 
-export interface RolesGuardConfig {
+export interface IRolesGuardConfig {
   getUserRoles: (context: ExecutionContext) => Promise<string[]> | string[];
 }
 
@@ -20,7 +20,7 @@ export class RolesGuard implements CanActivate {
     private readonly reflector: Reflector,
 
     @Inject(RolesGuard.RolesGuardConfigKey)
-    private readonly config: RolesGuardConfig,
+    private readonly config: IRolesGuardConfig,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
