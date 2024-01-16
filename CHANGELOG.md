@@ -1,3 +1,7 @@
+## 0.2.0 (2024-01-16)
+
+- transform response only match http request
+
 ## 0.1.1 (2023-12-16)
 
 - Rename interface `RolesGuardConfig` to `IRolesGuardConfig`
