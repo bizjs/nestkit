@@ -1,3 +1,7 @@
+## 0.2.1 (2024-02-22)
+
+- Add tea.yaml
+
 ## 0.2.0 (2024-01-16)
 
 - transform response only match http request
