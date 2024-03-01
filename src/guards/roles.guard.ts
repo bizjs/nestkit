@@ -36,16 +36,16 @@ export class RolesGuard implements CanActivate {
     const userRoles: string[] = await this.config.getUserRoles(context);
 
     // no roles
-    if (!userRoles || userRoles.length === 0) {
+    if (userRoles.length === 0) {
       throw new UnauthorizedException();
     }
 
-    const canVisitCtrl = !ctrlRoles || userRoles.some((x: string) => (ctrlRoles || []).includes(x));
+    const canVisitCtrl = ctrlRoles.length === 0 || userRoles.some((x: string) => (ctrlRoles || []).includes(x));
     if (!canVisitCtrl) {
       throw new ForbiddenException();
     }
 
-    const canVisitAction = !actionRoles || userRoles.some((x: string) => actionRoles.includes(x));
+    const canVisitAction = actionRoles.length === 0 || userRoles.some((x: string) => actionRoles.includes(x));
     if (!canVisitAction) {
       throw new ForbiddenException();
     }
