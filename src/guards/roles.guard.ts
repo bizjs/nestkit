@@ -45,8 +45,8 @@ export class RolesGuard implements CanActivate {
       throw new ForbiddenException();
     }
 
-    const canVisitHandler = !actionRoles || userRoles.some((x: string) => actionRoles.includes(x));
-    if (!canVisitHandler) {
+    const canVisitAction = !actionRoles || userRoles.some((x: string) => actionRoles.includes(x));
+    if (!canVisitAction) {
       throw new ForbiddenException();
     }
 
