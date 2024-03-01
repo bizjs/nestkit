@@ -1,3 +1,7 @@
+## 0.2.3 (2024-03-01)
+
+- Fix roles check error
+
 ## 0.2.2 (2024-03-01)
 
 - Fix roles check error
