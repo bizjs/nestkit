@@ -25,13 +25,14 @@ export class RolesGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     // Get roles
-    const ctrlRoles = this.reflector.get<string[]>('roles', context.getClass());
-    const handlerRoles = this.reflector.get<string[]>('roles', context.getHandler());
+    const ctrlRoles = this.reflector.get<string[]>('roles', context.getClass()) || [];
+    const actionRoles = this.reflector.get<string[]>('roles', context.getHandler()) || [];
 
-    if (!ctrlRoles && !handlerRoles) {
+    // No role check, return true
+    if (ctrlRoles.length === 0 && actionRoles.length === 0) {
       return true;
     }
-    // Logged user roles
+    // Get user roles
     const userRoles: string[] = await this.config.getUserRoles(context);
 
     // no roles
@@ -39,12 +40,12 @@ export class RolesGuard implements CanActivate {
       throw new UnauthorizedException();
     }
 
-    const canVisitCtrl = !userRoles || userRoles.some((x: string) => (ctrlRoles || []).includes(x));
+    const canVisitCtrl = !ctrlRoles || userRoles.some((x: string) => (ctrlRoles || []).includes(x));
     if (!canVisitCtrl) {
       throw new ForbiddenException();
     }
 
-    const canVisitHandler = !handlerRoles || userRoles.some((x: string) => handlerRoles.includes(x));
+    const canVisitHandler = !actionRoles || userRoles.some((x: string) => actionRoles.includes(x));
     if (!canVisitHandler) {
       throw new ForbiddenException();
     }
