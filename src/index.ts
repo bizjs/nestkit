@@ -17,3 +17,4 @@ export { IsPositiveIntegerString } from './class-validator-decorators/IsPositive
 
 // utils
 export { createRedisStore } from './utils/createRedisStore';
+export { RedisLock } from './utils/RedisLock';
