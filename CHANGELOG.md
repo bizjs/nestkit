@@ -1,3 +1,7 @@
+## 0.3.0 (2024-11-11)
+
+- Introduce `RedisLock` for distributed locking.
+
 ## 0.2.3 (2024-03-01)
 
 - Fix roles check error
