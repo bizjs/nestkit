@@ -4,6 +4,11 @@ export type RedisLockOptions = {
   connectionName?: string;
 };
 
+export type LockResult = {
+  release: () => Promise<boolean>;
+  extendLockTTL: () => Promise<boolean>;
+};
+
 export class RedisLock {
   private readonly redisConnectPromise: Promise<void>;
   private readonly client: Redis;
@@ -15,7 +20,7 @@ export class RedisLock {
     this.redisConnectPromise = this.client.connect();
   }
 
-  async acquireLock(lockKey: string, ttlSeconds: number): Promise<{ release: () => Promise<boolean> } | null> {
+  async acquireLock(lockKey: string, ttlSeconds: number): Promise<LockResult | null> {
     await this.redisConnectPromise;
     const value = Math.random().toString();
     const result = await this.client.set(lockKey, value, 'EX', ttlSeconds, 'NX');
@@ -23,6 +28,10 @@ export class RedisLock {
       return {
         release: async () => {
           return this.releaseLock(lockKey, value);
+        },
+        extendLockTTL: async () => {
+          const result = await this.client.expire(lockKey, ttlSeconds);
+          return result === 1;
         },
       };
     }
