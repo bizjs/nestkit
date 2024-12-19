@@ -1,3 +1,12 @@
+## 0.4.1 (2024-12-19)
+
+- Fix the issue with the abnormal build result directory.
+
+## 0.4.0 (2024-12-19)
+
+- Add `WrappedMemoryCache` for advanced cache.
+- Add more tests
+
 ## 0.3.0 (2024-11-11)
 
 - Introduce `RedisLock` for distributed locking.
