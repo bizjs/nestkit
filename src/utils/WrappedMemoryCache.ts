@@ -11,7 +11,7 @@ export class WrappedMemoryCache {
   private readonly cache = createCache();
   constructor(private readonly options: WrappedMemoryCacheOptions) {}
 
-  async getCachedValue(key: string) {
+  async getCachedValue<T>(key: string): Promise<T | undefined> {
     const valueFn = async () => {
       try {
         return await this.options.refreshFn(key)();
