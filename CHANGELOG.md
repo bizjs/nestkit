@@ -1,3 +1,7 @@
+## 0.5.0 (2025-03-28)
+
+- Support reading session ID from the header to enable session authentication under CORS.
+
 ## 0.4.1 (2024-12-19)
 
 - Fix the issue with the abnormal build result directory.
