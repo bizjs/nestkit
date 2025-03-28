@@ -19,3 +19,4 @@ export { IsPositiveIntegerString } from './class-validator-decorators/IsPositive
 export { createRedisStore } from './utils/createRedisStore';
 export { RedisLock } from './utils/RedisLock';
 export { WrappedMemoryCache, type WrappedMemoryCacheOptions } from './utils/WrappedMemoryCache';
+export { syncSessionIdFromHeader, getSignedSessionId } from './utils/sessionFromHeader';
