@@ -1,4 +1,4 @@
-import RedisStore from 'connect-redis';
+import { RedisStore } from 'connect-redis';
 import Redis from 'ioredis';
 
 export function createRedisStore(redisUrl: string, args: { prefix: string; connectionName?: string }) {
