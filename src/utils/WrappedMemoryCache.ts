@@ -25,6 +25,6 @@ export class WrappedMemoryCache {
   }
 
   async delCachedValue(key: string) {
-    await this.cache.del(key);
+    return await this.cache.del(key);
   }
 }

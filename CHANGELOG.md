@@ -1,3 +1,7 @@
+## 0.6.0 (2025-07-02)
+
+- `WrappedMemoryCache` support delete cached value
+
 ## 0.5.0 (2025-03-28)
 
 - Support reading session ID from the header to enable session authentication under CORS.
