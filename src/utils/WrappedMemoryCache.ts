@@ -8,7 +8,7 @@ export type WrappedMemoryCacheOptions = {
 };
 
 export class WrappedMemoryCache {
-  private readonly cache = createCache();
+  protected readonly cache = createCache();
   constructor(private readonly options: WrappedMemoryCacheOptions) {}
 
   async getCachedValue<T>(key: string): Promise<T | undefined> {
@@ -22,5 +22,9 @@ export class WrappedMemoryCache {
 
     const value = await this.cache.wrap(key, valueFn, this.options.ttl, this.options.refreshThreshold);
     return value;
+  }
+
+  async delCachedValue(key: string) {
+    await this.cache.del(key);
   }
 }
