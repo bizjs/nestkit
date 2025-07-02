@@ -69,4 +69,16 @@ describe('WrappedMemoryCache', () => {
     val = await cache.getCachedValue('ok');
     expect(val).toBe(1);
   });
+
+  test('del unexisted key', async () => {
+    const cache = new WrappedMemoryCache({
+      ttl: 60 * 60 * 1000, // 1h
+      refreshThreshold: 10 * 1000, // 10s
+      refreshFn: (key) => {
+        return () => Promise.resolve(key);
+      },
+    });
+
+    await cache.delCachedValue('unexisted');
+  });
 });
