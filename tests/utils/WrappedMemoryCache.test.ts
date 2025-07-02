@@ -46,4 +46,27 @@ describe('WrappedMemoryCache', () => {
     expect(val).toBe(undefined);
     expect(errorHandle).toHaveBeenCalledTimes(2);
   });
+
+  test('delCachedValue and refetch ok', async () => {
+    let count = 0;
+
+    const cache = new WrappedMemoryCache({
+      ttl: 60 * 60 * 1000, // 1h
+      refreshThreshold: 10 * 1000, // 10s
+      refreshFn: (key) => {
+        return () => Promise.resolve(count++);
+      },
+    });
+
+    let val = await cache.getCachedValue('ok');
+    expect(val).toBe(0);
+
+    val = await cache.getCachedValue('ok');
+    expect(val).toBe(0);
+
+    await cache.delCachedValue('ok');
+
+    val = await cache.getCachedValue('ok');
+    expect(val).toBe(1);
+  });
 });
