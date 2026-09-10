@@ -116,8 +116,8 @@ describe('RedisLock', () => {
   it('closes once across repeated/concurrent calls', async () => {
     await Promise.all([lock.close(), lock.close()]);
     await lock.close();
-    expect(client.close).toHaveBeenCalledTimes(1);
-    expect(client.destroy).not.toHaveBeenCalled();
+    expect(client.close).not.toHaveBeenCalled();
+    expect(client.destroy).toHaveBeenCalledTimes(1);
   });
   it('does not destroy an unopened client', async () => {
     client.isOpen = client.isReady = false;
@@ -134,10 +134,10 @@ describe('RedisLock', () => {
     expect(client.destroy).toHaveBeenCalledTimes(1);
     expect(client.set).not.toHaveBeenCalled();
   });
-  it('destroys the connection when graceful closing fails', async () => {
-    const error = new Error('close failed');
-    client.close.mockRejectedValue(error);
-    await expect(lock.close()).rejects.toBe(error);
+  it('does not wait for graceful closing of pending commands', async () => {
+    client.close.mockImplementation(() => new Promise(() => {}));
+    await lock.close();
+    expect(client.close).not.toHaveBeenCalled();
     expect(client.destroy).toHaveBeenCalledTimes(1);
   });
   it('rejects acquire/release/renew after closing', async () => {

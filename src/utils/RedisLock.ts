@@ -23,6 +23,7 @@ export class RedisLock {
       disableOfflineQueue: true,
       socket: {
         connectTimeout: 5000,
+        socketTimeout: 5000,
         reconnectStrategy: (retries) => retries < 3 ? Math.min(50 * 2 ** retries, 500) : false,
       },
     });
@@ -35,15 +36,8 @@ export class RedisLock {
   }
 
   private async closeClient(): Promise<void> {
-    try {
-      if (this.client.isReady) {
-        await this.client.close();
-      }
-    } finally {
-      // Stop pending connections/retries, or force cleanup if closing fails.
-      if (this.client.isOpen) {
-        this.client.destroy();
-      }
+    if (this.client.isOpen) {
+      this.client.destroy();
     }
   }
 

@@ -98,14 +98,17 @@ RedisLock uses the `redis` v5 client. Its first operation explicitly connects;
 concurrent first operations share that pending connection. A completed or failed
 connection attempt is not cached, so a later call can connect again after failure.
 Automatic reconnection uses up to three retries per connection cycle, with a
-5-second connection-attempt timeout. This is not a total operation timeout.
+5-second connection-attempt timeout and a 5-second socket inactivity timeout.
+An inactive socket is disconnected, rejecting pending commands. These are not
+a total operation deadline; activity on the socket resets the inactivity timer.
 Operations wait for a pending connection/reconnection, but fail if it reports an
 error. Offline command queuing is disabled, so a disconnect between readiness
 and command dispatch fails the command instead of delaying it. A failed command
 does not guarantee that Redis never executed it. Use `onError` to customize
 connection-error reporting (defaults to `console.error`).
 
-Call `await redisLock.close()` after all lock operations have finished. Release
+`await redisLock.close()` immediately destroys the connection and rejects pending
+commands instead of waiting for their replies. Release
 held locks before closing: closing the connection does not delete locks; any
 unreleased locks remain until their TTL expires. Repeated calls share the same
 shutdown result. Acquire, release, and renewal operations reject after closing.
