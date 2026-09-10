@@ -19,9 +19,10 @@ export class ResponseTransformInterceptor implements NestInterceptor {
         if (pureResponse === true) {
           return value;
         }
+        const res = context.switchToHttp().getResponse<{ statusCode: number }>();
         return {
           success: true,
-          statusCode: 200,
+          statusCode: res.statusCode,
           data: value,
           message: 'ok',
         };
