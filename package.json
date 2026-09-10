@@ -27,7 +27,7 @@
     "url": "https://github.com/bizjs/nestkit/issues"
   },
   "author": "hstarorg <hm910705@163.com>",
-  "license": "ISC",
+  "license": "MIT",
   "publishConfig": {
     "access": "public"
   },
@@ -55,9 +55,9 @@
   },
   "dependencies": {
     "cache-manager": "^6.3.1",
-    "connect-redis": "^8.0.2",
+    "connect-redis": "^9.0.0",
     "cookie": "^1.0.2",
     "cookie-signature": "^1.2.2",
-    "ioredis": "^5.4.1"
+    "redis": "^5.12.1"
   }
 }

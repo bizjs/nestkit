@@ -9,7 +9,6 @@ export { RolesGuard, IRolesGuardConfig } from './guards/roles.guard';
 export { ResponseTransformInterceptor } from './intercepters/response-transform.interceoter';
 
 // Pipes
-export { RequestValidationPipe } from './pipes/request-validation.pipe';
 export { PositiveIntegerPipe } from './pipes/positive-integer.pipe';
 
 // class-validator decorators

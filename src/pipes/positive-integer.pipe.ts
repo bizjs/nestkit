@@ -6,15 +6,17 @@ import {
 } from '@nestjs/common';
 
 @Injectable()
-export class PositiveIntegerPipe implements PipeTransform {
-  async transform(value: any, { data }: ArgumentMetadata): Promise<number> {
-    const numVal = Number(value);
+export class PositiveIntegerPipe implements PipeTransform<unknown, number> {
+  transform(value: unknown, { data }: ArgumentMetadata): number {
+    const validType = typeof value === 'number' ||
+      (typeof value === 'string' && /^[0-9]+$/.test(value));
+    const numVal = validType ? Number(value) : NaN;
 
-    const isPositiveInteger = Number.isInteger(numVal) && numVal > 0;
+    const isPositiveInteger = Number.isSafeInteger(numVal) && numVal > 0;
 
     if (!isPositiveInteger) {
       throw new BadRequestException(
-        `Validation failed: '${data}' must be positive integer.`
+        `Validation failed: ${data ? `'${data}'` : 'value'} must be a positive safe integer.`
       );
     }
 

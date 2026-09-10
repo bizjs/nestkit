@@ -1,5 +1,5 @@
 import { SetMetadata } from '@nestjs/common';
 
-export const PureResponse = () => {
-  return SetMetadata('pureResponse', true);
+export const PureResponse = (enabled = true) => {
+  return SetMetadata('pureResponse', enabled);
 };

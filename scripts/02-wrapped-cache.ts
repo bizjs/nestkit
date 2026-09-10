@@ -17,7 +17,7 @@ async function start() {
   const cache = new WrappedMemoryCache({
     ttl: 10000,
     refreshThreshold: 3000,
-    refreshFn: (key) => () => getProjectInfoForCache(key),
+    refreshFn: getProjectInfoForCache,
   });
 
   setInterval(async () => {
