@@ -86,11 +86,16 @@ format information already lost during JSON parsing cannot be recovered.
 
 ## Redis lock lifecycle
 
-The first command starts the Redis connection. ioredis queues commands while
-connecting or reconnecting, with `maxRetriesPerRequest: 3` to bound retries for
-pending commands. A failed command rejects, but does not prevent later commands
-from succeeding after recovery. This is a retry-count limit, not a wall-clock
-timeout or a guarantee that a failed command was never executed by Redis.
+RedisLock uses the `redis` v5 client. Its first operation explicitly connects;
+concurrent first operations share that pending connection. A completed or failed
+connection attempt is not cached, so a later call can connect again after failure.
+Automatic reconnection uses up to three retries per connection cycle, with a
+5-second connection-attempt timeout. This is not a total operation timeout.
+Operations wait for a pending connection/reconnection, but fail if it reports an
+error. Offline command queuing is disabled, so a disconnect between readiness
+and command dispatch fails the command instead of delaying it. A failed command
+does not guarantee that Redis never executed it. Use `onError` to customize
+connection-error reporting (defaults to `console.error`).
 
 Call `await redisLock.close()` after all lock operations have finished. Release
 held locks before closing: closing the connection does not delete locks; any
@@ -142,3 +147,38 @@ call. Subsequent reads start or share a new load; an older operation cannot
 replace the new cached value. Callers already awaiting an old load may still
 receive that load's result. Deletion does not cancel the loader's external work
 and does not invalidate other keys.
+
+
+## Redis sessions (connect-redis v9)
+
+Session storage now uses `connect-redis` v9 and the `redis` v5 client. The
+application owns the connection. `createRedisStore` now accepts a client instead
+of a URL; pass `connectionName` as `name` when creating that client.
+
+```ts
+import { createClient } from 'redis';
+import session = require('express-session');
+import { createRedisStore } from '@bizjs/nestkit';
+
+const client = createClient({
+  url: process.env.REDIS_URL,
+  name: 'session',
+});
+client.on('error', console.error);
+await client.connect();
+
+const store = createRedisStore(client, { prefix: 'myapp:sess:' });
+app.use(session({
+  store,
+  secret: process.env.SESSION_SECRET!,
+  resave: false,
+  saveUninitialized: false,
+}));
+```
+
+Install `express-session` in the consuming application. In its owning provider's
+shutdown hook, after requests have drained, use `await client.close()` for normal
+shutdown (`client.destroy()` for forced disconnection). The store neither
+connects nor closes the supplied client. Use separate Lock and Session clients
+so closing a lock instance does not close the session connection. Applications
+may also use `new RedisStore({ client, prefix })` directly.

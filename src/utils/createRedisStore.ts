@@ -1,17 +1,9 @@
 import { RedisStore } from 'connect-redis';
-import Redis from 'ioredis';
+import { createClient, createCluster } from 'redis';
 
-export function createRedisStore(redisUrl: string, args: { prefix: string; connectionName?: string }) {
-  const redis = new Redis(redisUrl, {
-    connectionName: args.connectionName || 'session',
-  });
-  redis.on('error', (err) => {
-    console.error(err);
-  });
-
-  const redisStore = new RedisStore({
-    client: redis,
-    prefix: args.prefix,
-  });
-  return redisStore;
+export function createRedisStore(
+  client: ReturnType<typeof createClient> | ReturnType<typeof createCluster>,
+  args: { prefix: string },
+): RedisStore {
+  return new RedisStore({ client, prefix: args.prefix });
 }
