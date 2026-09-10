@@ -1,4 +1,4 @@
-import { ExecutionContext } from '@nestjs/common';
+import { BadRequestException, ExecutionContext, HttpException, Logger } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { firstValueFrom, of, throwError } from 'rxjs';
 import { PureResponse, ResponseTransformInterceptor } from '../../src';
@@ -62,12 +62,51 @@ describe('ResponseTransformInterceptor', () => {
     expect(switchToHttp).not.toHaveBeenCalled();
   });
 
-  it('propagates errors without wrapping them as successful responses', async () => {
-    const { context } = createContext(200);
-    const error = new Error('failed');
+  it.each([
+    [new BadRequestException('invalid'), 400, 'invalid'],
+    [new BadRequestException(['field A invalid', 'field B missing']), 400, ['field A invalid', 'field B missing']],
+    [new HttpException('unavailable', 503), 503, 'unavailable'],
+  ])('wraps HTTP exceptions and sets the actual response status', async (error, statusCode, message) => {
+    const { context, response } = createContext(201);
+    const result = await firstValueFrom(interceptor.intercept(context, {
+      handle: () => throwError(() => error),
+    }));
+    expect(result).toEqual({ success: false, statusCode, data: null, message });
+    expect(response.statusCode).toBe(statusCode);
+  });
 
+  it('logs unexpected errors without exposing their details', async () => {
+    const { context, response } = createContext(200);
+    const error = new Error('internal database credentials');
+    const log = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+    try {
+      expect(await firstValueFrom(interceptor.intercept(context, {
+        handle: () => throwError(() => error),
+      }))).toEqual({ success: false, statusCode: 500, data: null, message: 'Internal server error' });
+      expect(response.statusCode).toBe(500);
+      expect(log).toHaveBeenCalledWith(error);
+    } finally { log.mockRestore(); }
+  });
+
+  it('propagates errors for PureResponse routes', async () => {
+    class Controller {
+      @PureResponse()
+      handler() {}
+    }
+    const { context } = createContext(200, 'http', Controller.prototype.handler);
+    const error = new BadRequestException();
     await expect(firstValueFrom(interceptor.intercept(context, {
       handle: () => throwError(() => error),
     }))).rejects.toBe(error);
+  });
+
+  it('does not change the status or swallow errors after headers are sent', async () => {
+    const { context, response } = createContext(200);
+    Object.assign(response, { headersSent: true });
+    const error = new Error('stream failed');
+    await expect(firstValueFrom(interceptor.intercept(context, {
+      handle: () => throwError(() => error),
+    }))).rejects.toBe(error);
+    expect(response.statusCode).toBe(200);
   });
 });

@@ -39,6 +39,13 @@ Register `ResponseTransformInterceptor` through Nest dependency injection (for
 example, with `APP_INTERCEPTOR`). Ordinary JSON responses use
 `{ success: true, statusCode, data, message: 'ok' }`, with the current HTTP status.
 
+Controller and pipe exceptions reaching this interceptor use
+`{ success: false, statusCode, data: null, message }`. `HttpException` status codes
+and messages (including validation message arrays) are preserved. Unexpected
+errors are logged and return HTTP 500 with `Internal server error`.
+Guard failures, unmatched routes and request-body parsing errors occur outside
+this interceptor and retain their existing exception handling.
+
 `@PureResponse()` skips wrapping. It works on controllers and methods; a method's
 setting takes precedence over its controller's setting:
 
@@ -68,7 +75,8 @@ wrapping. Without a content type, ordinary values (including strings, arrays,
 DTO objects and `null`) are eligible. Set the content type or use `@PureResponse()`
 for raw text or other custom formats. `@PureResponse(false)` does not override
 these automatic exclusions. Direct `@Res().send()` responses remain managed by
-the handler. Errors propagate unchanged.
+the handler. For excluded routes/responses, errors propagate unchanged to Nest
+exception handling.
 
 ## Positive integers
 

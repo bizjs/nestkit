@@ -1,11 +1,12 @@
-import { CallHandler, ExecutionContext, Injectable, NestInterceptor, StreamableFile } from '@nestjs/common';
+import { CallHandler, ExecutionContext, HttpException, Injectable, Logger, NestInterceptor, StreamableFile } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { Observable, map } from 'rxjs';
+import { Observable, catchError, map, of } from 'rxjs';
 import { REDIRECT_METADATA, RENDER_METADATA, SSE_METADATA } from '@nestjs/common/constants';
 import { Stream } from 'node:stream';
 
 @Injectable()
 export class ResponseTransformInterceptor implements NestInterceptor {
+  private readonly logger = new Logger(ResponseTransformInterceptor.name);
   constructor(private readonly reflector: Reflector) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
@@ -15,7 +16,27 @@ export class ResponseTransformInterceptor implements NestInterceptor {
 
     return next.handle().pipe(
       map((value) => this.shouldSkipResponse(context, value) ? value : this.wrap(context, value)),
+      catchError((error: unknown) => of(this.wrapError(context, error))),
     );
+  }
+
+  private wrapError(context: ExecutionContext, error: unknown) {
+    if (this.shouldSkipResponse(context, null)) throw error;
+
+    const statusCode = error instanceof HttpException ? error.getStatus() : 500;
+    let message: string | string[] = 'Internal server error';
+    if (error instanceof HttpException) {
+      const body = error.getResponse();
+      const detail = typeof body === 'string' ? body : (body as { message?: unknown })?.message;
+      message = typeof detail === 'string' ||
+        (Array.isArray(detail) && detail.every(item => typeof item === 'string'))
+        ? detail : error.message;
+    } else {
+      this.logger.error(error);
+    }
+
+    context.switchToHttp().getResponse<HttpResponse>().statusCode = statusCode;
+    return { success: false, statusCode, data: null, message };
   }
 
   private wrap(context: ExecutionContext, value: unknown) {
