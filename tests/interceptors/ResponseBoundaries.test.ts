@@ -1,4 +1,4 @@
-import { ExecutionContext, Redirect, Sse, StreamableFile } from '@nestjs/common';
+import { ExecutionContext, Redirect, Render, Sse, StreamableFile } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Readable } from 'node:stream';
 import { firstValueFrom, of } from 'rxjs';
@@ -19,6 +19,18 @@ function run(value: unknown, options: { status?: number; method?: string; header
 }
 
 describe('response wrapping boundaries', () => {
+  it('preserves template locals before HTML headers are set, even with wrapping enabled', async () => {
+    class Controller {
+      @Render('index') page() {}
+      @PureResponse(false)
+      @Render('index') explicitlyWrapped() {}
+    }
+    const locals = { title: 'Welcome' };
+    for (const handler of [Controller.prototype.page, Controller.prototype.explicitlyWrapped]) {
+      expect(await run(locals, { handler, controller: Controller })).toBe(locals);
+    }
+  });
+
   it.each([204, 205, 301, 302, 304, 307, 308])('preserves status %i payloads', async (status) => {
     const value = { url: '/next' };
     expect(await run(value, { status })).toBe(value);

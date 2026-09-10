@@ -3,7 +3,7 @@ import { sign } from 'cookie-signature';
 
 export function syncSessionIdFromHeader(options: { cookieName?: string; headerName?: string }) {
   const cookieName = options.cookieName || 'connect.sid';
-  const headerName = options.headerName || 'connect.sid';
+  const headerName = (options.headerName || 'connect.sid').toLowerCase();
   return (req: any, res: any, next: Function) => {
     const signedSessionId = req.headers[headerName] as string;
 

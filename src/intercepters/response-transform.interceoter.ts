@@ -1,7 +1,7 @@
 import { CallHandler, ExecutionContext, Injectable, NestInterceptor, StreamableFile } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Observable, map } from 'rxjs';
-import { REDIRECT_METADATA, SSE_METADATA } from '@nestjs/common/constants';
+import { REDIRECT_METADATA, RENDER_METADATA, SSE_METADATA } from '@nestjs/common/constants';
 import { Stream } from 'node:stream';
 
 @Injectable()
@@ -36,6 +36,7 @@ export class ResponseTransformInterceptor implements NestInterceptor {
     const pureResponse = this.reflector.getAllAndOverride<boolean>('pureResponse', [handler, context.getClass()]);
     return Boolean(
       pureResponse ||
+      this.reflector.get(RENDER_METADATA, handler) ||
       this.reflector.get(SSE_METADATA, handler) ||
       this.reflector.get(REDIRECT_METADATA, handler),
     );
