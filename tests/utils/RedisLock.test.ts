@@ -72,29 +72,55 @@ describe('RedisLock', () => {
     const lockKey = 'testLock';
     const ttlSeconds = 10;
 
-    // 模拟 Redis expire 操作，返回 1 表示 TTL 扩展成功
-    redis.expire.mockResolvedValue(1);
+    redis.set.mockResolvedValue('OK');
+    redis.eval.mockResolvedValue(1);
 
     const lockResult = await redisLock.acquireLock(lockKey, ttlSeconds);
-    if (lockResult) {
-      const result = await lockResult.extendLockTTL();
-      expect(result).toBe(true);
-      expect(redis.expire).toHaveBeenCalledWith(lockKey, ttlSeconds);
-    }
+    expect(lockResult).not.toBeNull();
+    const token = redis.set.mock.calls[0][1];
+    const result = await lockResult!.extendLockTTL();
+    expect(result).toBe(true);
+    expect(redis.eval).toHaveBeenCalledWith(expect.any(String), 1, lockKey, token, ttlSeconds);
+    expect(redis.expire).not.toHaveBeenCalled();
   });
 
   it('should return false if extend TTL fails', async () => {
     const lockKey = 'testLock';
     const ttlSeconds = 10;
 
-    // 模拟 Redis expire 操作，返回 0 表示 TTL 扩展失败
-    redis.expire.mockResolvedValue(0);
+    redis.set.mockResolvedValue('OK');
+    redis.eval.mockResolvedValue(0);
 
     const lockResult = await redisLock.acquireLock(lockKey, ttlSeconds);
-    if (lockResult) {
-      const result = await lockResult.extendLockTTL();
-      expect(result).toBe(false);
-      expect(redis.expire).toHaveBeenCalledWith(lockKey, ttlSeconds);
+    expect(lockResult).not.toBeNull();
+    const token = redis.set.mock.calls[0][1];
+    const result = await lockResult!.extendLockTTL();
+    expect(result).toBe(false);
+    expect(redis.eval).toHaveBeenCalledWith(expect.any(String), 1, lockKey, token, ttlSeconds);
+    expect(redis.expire).not.toHaveBeenCalled();
+  });
+
+  it('should use the original owner token when renewing after another owner acquires the key', async () => {
+    const random = jest.spyOn(Math, 'random');
+    try {
+      random.mockReturnValueOnce(0.1).mockReturnValueOnce(0.2);
+      redis.set.mockResolvedValue('OK');
+      const oldLock = await redisLock.acquireLock('shared-lock', 10);
+      // The old lease has expired and Redis grants the same key to a new owner.
+      const newLock = await redisLock.acquireLock('shared-lock', 20);
+      expect(oldLock).not.toBeNull();
+      expect(newLock).not.toBeNull();
+
+      redis.eval.mockResolvedValueOnce(0).mockResolvedValueOnce(1);
+      expect(await oldLock!.extendLockTTL()).toBe(false);
+      expect(await newLock!.extendLockTTL()).toBe(true);
+
+      const [, keyCount, key, token, ttl] = redis.eval.mock.calls[0];
+      expect([keyCount, key, token, ttl]).toEqual([1, 'shared-lock', '0.1', 10]);
+      expect(redis.eval.mock.calls[1].slice(1)).toEqual([1, 'shared-lock', '0.2', 20]);
+      expect(redis.expire).not.toHaveBeenCalled();
+    } finally {
+      random.mockRestore();
     }
   });
 });

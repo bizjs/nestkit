@@ -30,7 +30,14 @@ export class RedisLock {
           return this.releaseLock(lockKey, value);
         },
         extendLockTTL: async () => {
-          const result = await this.client.expire(lockKey, ttlSeconds);
+          const luaScript = `
+            if redis.call("get", KEYS[1]) == ARGV[1] then
+              return redis.call("expire", KEYS[1], ARGV[2])
+            else
+              return 0
+            end
+          `;
+          const result = await this.client.eval(luaScript, 1, lockKey, value, ttlSeconds);
           return result === 1;
         },
       };
