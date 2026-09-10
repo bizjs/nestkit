@@ -142,13 +142,6 @@ Migration: replace `refreshFn: key => () => load(key)` with
 preserves the existing value until its original expiry; a failed initial load
 returns `undefined`.
 
-`delCachedValue(key)` also invalidates loads and refreshes started before the
-call. Subsequent reads start or share a new load; an older operation cannot
-replace the new cached value. Callers already awaiting an old load may still
-receive that load's result. Deletion does not cancel the loader's external work
-and does not invalidate other keys.
-
-
 ## Redis sessions (connect-redis v9)
 
 Session storage now uses `connect-redis` v9 and the `redis` v5 client. The
