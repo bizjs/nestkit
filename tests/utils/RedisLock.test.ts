@@ -5,12 +5,15 @@ jest.mock('ioredis', () => {
   return {
     Redis: jest.fn().mockImplementation(() => {
       return {
+        status: 'ready',
+        quit: jest.fn().mockResolvedValue('OK'),
+        disconnect: jest.fn(),
         set: jest.fn(),
         setex: jest.fn(),
         get: jest.fn(),
         del: jest.fn(),
         expire: jest.fn(),
-        connect: jest.fn(),
+        connect: jest.fn().mockResolvedValue(undefined),
         eval: jest.fn(),
       };
     }),
@@ -28,6 +31,45 @@ describe('RedisLock', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+  });
+
+  it('closes the connection once across repeated and concurrent calls', async () => {
+    await Promise.all([redisLock.close(), redisLock.close()]);
+    await redisLock.close();
+    expect(redis.quit).toHaveBeenCalledTimes(1);
+    expect(redis.disconnect).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['connecting', 'reconnecting', 'end'] as const)('closes a %s client without waiting for Redis', async status => {
+    Object.defineProperty(redis, 'status', { value: status });
+    await redisLock.close();
+    expect(redis.quit).not.toHaveBeenCalled();
+    expect(redis.disconnect).toHaveBeenCalledTimes(1);
+  });
+
+  it('disconnects even if graceful shutdown fails', async () => {
+    const error = new Error('QUIT failed');
+    redis.quit.mockRejectedValue(error);
+    await expect(redisLock.close()).rejects.toBe(error);
+    expect(redis.disconnect).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects new and existing lock operations after close', async () => {
+    redis.set.mockResolvedValue('OK');
+    const lock = await redisLock.acquireLock('key', 10);
+    await redisLock.close();
+    await expect(redisLock.acquireLock('key', 10)).rejects.toThrow('RedisLock is closed');
+    await expect(lock!.release()).rejects.toThrow('RedisLock is closed');
+    await expect(lock!.extendLockTTL()).rejects.toThrow('RedisLock is closed');
+    expect(redis.set).toHaveBeenCalledTimes(1);
+    expect(redis.eval).not.toHaveBeenCalled();
+  });
+
+  it('does not send an acquire command if closed while awaiting the connection', async () => {
+    const acquiring = redisLock.acquireLock('key', 10);
+    await redisLock.close();
+    await expect(acquiring).rejects.toThrow('RedisLock is closed');
+    expect(redis.set).not.toHaveBeenCalled();
   });
 
   it('should acquire lock successfully', async () => {

@@ -60,7 +60,7 @@ export class ItemsController {
 ```
 
 The interceptor automatically preserves non-HTTP responses, `@Sse()` and
-`@Redirect()` responses, HEAD requests, 204/205 and 3xx responses, sent responses,
+`@Redirect()` and `@Render()` responses, HEAD requests, 204/205 and 3xx responses, sent responses,
 `StreamableFile`, Node streams, binary data, and `undefined`. Downloads marked
 with `Content-Disposition: attachment` and explicit non-JSON content types are
 also preserved. `application/json` and `application/*+json` are eligible for
@@ -83,3 +83,28 @@ strings only. These stricter rules replace the previous permissive numeric
 coercion. Keep identifiers above the safe integer limit as strings and use a
 separate string validator. Numeric inputs are checked as received: precision or
 format information already lost during JSON parsing cannot be recovered.
+
+## Redis lock lifecycle
+
+Call `await redisLock.close()` after all lock operations have finished. Release
+held locks before closing: closing the connection does not delete locks; any
+unreleased locks remain until their TTL expires. Repeated calls share the same
+shutdown result. Acquire, release, and renewal operations reject after closing.
+
+```ts
+const redisLock = new RedisLock({ redisUrl: 'redis://localhost:6379' });
+try {
+  const lock = await redisLock.acquireLock('job', 30);
+  if (lock) {
+    try {
+      await doWork();
+    } finally {
+      await lock.release();
+    }
+  }
+} finally {
+  await redisLock.close();
+}
+```
+
+In Nest applications, call `close()` from the owning provider's shutdown hook.

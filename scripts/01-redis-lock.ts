@@ -29,12 +29,21 @@ config();
     }
   }
 
-  while (true) {
-    i++;
-    test();
-    await sleep(1000);
-    if (i >= 20) {
-      break;
+  const tasks: Promise<void>[] = [];
+  try {
+    while (i < 20) {
+      i++;
+      tasks.push(test().catch((error) => {
+        console.error(error);
+        process.exitCode = 1;
+      }));
+      await sleep(1000);
     }
+  } finally {
+    await Promise.all(tasks);
+    await redisLock.close();
   }
-})();
+})().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
