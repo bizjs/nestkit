@@ -108,3 +108,25 @@ try {
 ```
 
 In Nest applications, call `close()` from the owning provider's shutdown hook.
+
+## Wrapped memory cache
+
+Pass one async loader directly; it receives the cache key and returns its value.
+`ttl` and `refreshThreshold` are in milliseconds.
+
+```ts
+const cache = new WrappedMemoryCache({
+  ttl: 10000,
+  refreshThreshold: 3000,
+  refreshFn: async (key) => fetchProject(key),
+  onRefreshError: (key, error) => console.error(key, error),
+});
+
+const project = await cache.getCachedValue('project1');
+await cache.delCachedValue('project1');
+```
+
+Migration: replace `refreshFn: key => () => load(key)` with
+`refreshFn: key => load(key)` (or `refreshFn: load`). Background refresh failure
+preserves the existing value until its original expiry; a failed initial load
+returns `undefined`.
