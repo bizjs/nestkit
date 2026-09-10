@@ -98,9 +98,9 @@ RedisLock uses the `redis` v5 client. Its first operation explicitly connects;
 concurrent first operations share that pending connection. A completed or failed
 connection attempt is not cached, so a later call can connect again after failure.
 Automatic reconnection uses up to three retries per connection cycle, with a
-5-second connection-attempt timeout and a 5-second socket inactivity timeout.
-An inactive socket is disconnected, rejecting pending commands. These are not
-a total operation deadline; activity on the socket resets the inactivity timer.
+5-second connection-attempt timeout. Commands have no separate timeout; an
+unresponsive connection may leave commands pending until it closes or `close()`
+is called.
 Operations wait for a pending connection/reconnection, but fail if it reports an
 error. Offline command queuing is disabled, so a disconnect between readiness
 and command dispatch fails the command instead of delaying it. A failed command

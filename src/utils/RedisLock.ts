@@ -23,7 +23,6 @@ export class RedisLock {
       disableOfflineQueue: true,
       socket: {
         connectTimeout: 5000,
-        socketTimeout: 5000,
         reconnectStrategy: (retries) => retries < 3 ? Math.min(50 * 2 ** retries, 500) : false,
       },
     });
