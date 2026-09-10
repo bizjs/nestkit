@@ -10,8 +10,11 @@ class IsPositiveIntegerStringConstraint
   implements ValidatorConstraintInterface
 {
   validate(value: unknown) {
+    if (typeof value !== 'string' || !/^[0-9]+$/.test(value)) {
+      return false;
+    }
     const numVal = Number(value);
-    return Number.isInteger(numVal) && numVal > 0;
+    return Number.isSafeInteger(numVal) && numVal > 0;
   }
 }
 
@@ -21,7 +24,7 @@ export function IsPositiveIntegerString(validationOptions?: ValidationOptions) {
       target: object.constructor,
       propertyName: propertyName,
       options: {
-        message: `${propertyName} must be a positive integer string`,
+        message: `${propertyName} must be a positive safe integer string`,
         ...validationOptions,
       },
       constraints: [],

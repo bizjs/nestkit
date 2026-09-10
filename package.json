@@ -27,7 +27,7 @@
     "url": "https://github.com/bizjs/nestkit/issues"
   },
   "author": "hstarorg <hm910705@163.com>",
-  "license": "ISC",
+  "license": "MIT",
   "publishConfig": {
     "access": "public"
   },
