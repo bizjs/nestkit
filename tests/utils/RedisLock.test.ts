@@ -40,7 +40,7 @@ describe('RedisLock', () => {
     expect(redis.disconnect).toHaveBeenCalledTimes(1);
   });
 
-  it.each(['connecting', 'reconnecting', 'end'] as const)('closes a %s client without waiting for Redis', async status => {
+  it.each(['wait', 'connecting', 'reconnecting', 'end'] as const)('closes a %s client without waiting for Redis', async status => {
     Object.defineProperty(redis, 'status', { value: status });
     await redisLock.close();
     expect(redis.quit).not.toHaveBeenCalled();
@@ -65,11 +65,43 @@ describe('RedisLock', () => {
     expect(redis.eval).not.toHaveBeenCalled();
   });
 
-  it('does not send an acquire command if closed while awaiting the connection', async () => {
+  it('rejects a queued acquire when closing during reconnection', async () => {
+    Object.defineProperty(redis, 'status', { value: 'reconnecting' });
+    const error = new Error('Connection is closed.');
+    let rejectCommand: (error: Error) => void;
+    redis.set.mockImplementation(() => new Promise((_, reject) => { rejectCommand = reject; }) as any);
+    redis.disconnect.mockImplementation(() => rejectCommand(error));
     const acquiring = redisLock.acquireLock('key', 10);
+    const assertion = expect(acquiring).rejects.toBe(error);
     await redisLock.close();
-    await expect(acquiring).rejects.toThrow('RedisLock is closed');
-    expect(redis.set).not.toHaveBeenCalled();
+    await assertion;
+    expect(redis.disconnect).toHaveBeenCalledTimes(1);
+    await expect(redisLock.acquireLock('key', 10)).rejects.toThrow('RedisLock is closed');
+    expect(redis.set).toHaveBeenCalledTimes(1);
+  });
+
+  it('delegates lazy connection and bounded command retries to ioredis', () => {
+    expect(redis.connect).not.toHaveBeenCalled();
+    expect(Redis).toHaveBeenCalledWith('mock://localhost:6379', expect.objectContaining({
+      lazyConnect: true,
+      enableOfflineQueue: true,
+      maxRetriesPerRequest: 3,
+    }));
+  });
+
+  it('can acquire, renew and release after an earlier connection failure', async () => {
+    const error = new Error('Reached the max retries per request limit');
+    redis.set.mockRejectedValueOnce(error).mockResolvedValueOnce('OK');
+    await expect(redisLock.acquireLock('key', 10)).rejects.toBe(error);
+
+    // ioredis has reconnected; a new command must not await an old rejection.
+    const lock = await redisLock.acquireLock('key', 10);
+    expect(lock).not.toBeNull();
+    redis.eval.mockResolvedValue(1);
+    await expect(lock!.extendLockTTL()).resolves.toBe(true);
+    await expect(lock!.release()).resolves.toBe(true);
+    expect(redis.set).toHaveBeenCalledTimes(2);
+    expect(redis.connect).not.toHaveBeenCalled();
   });
 
   it('should acquire lock successfully', async () => {

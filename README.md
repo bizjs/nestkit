@@ -86,6 +86,12 @@ format information already lost during JSON parsing cannot be recovered.
 
 ## Redis lock lifecycle
 
+The first command starts the Redis connection. ioredis queues commands while
+connecting or reconnecting, with `maxRetriesPerRequest: 3` to bound retries for
+pending commands. A failed command rejects, but does not prevent later commands
+from succeeding after recovery. This is a retry-count limit, not a wall-clock
+timeout or a guarantee that a failed command was never executed by Redis.
+
 Call `await redisLock.close()` after all lock operations have finished. Release
 held locks before closing: closing the connection does not delete locks; any
 unreleased locks remain until their TTL expires. Repeated calls share the same
@@ -130,3 +136,9 @@ Migration: replace `refreshFn: key => () => load(key)` with
 `refreshFn: key => load(key)` (or `refreshFn: load`). Background refresh failure
 preserves the existing value until its original expiry; a failed initial load
 returns `undefined`.
+
+`delCachedValue(key)` also invalidates loads and refreshes started before the
+call. Subsequent reads start or share a new load; an older operation cannot
+replace the new cached value. Callers already awaiting an old load may still
+receive that load's result. Deletion does not cancel the loader's external work
+and does not invalidate other keys.

@@ -10,7 +10,6 @@ export type LockResult = {
 };
 
 export class RedisLock {
-  private readonly redisConnectPromise: Promise<void>;
   private readonly client: Redis;
   private closed = false;
   private closePromise?: Promise<void>;
@@ -18,11 +17,9 @@ export class RedisLock {
     this.client = new Redis(options.redisUrl, {
       connectionName: options.connectionName || 'redis-lock',
       lazyConnect: true,
+      enableOfflineQueue: true,
+      maxRetriesPerRequest: 3,
     });
-    this.redisConnectPromise = this.client.connect();
-    // Keep the rejection available to acquireLock without an unhandled rejection
-    // if the client is closed before its first operation.
-    void this.redisConnectPromise.catch(() => {});
   }
 
   close(): Promise<void> {
@@ -49,8 +46,6 @@ export class RedisLock {
 
   async acquireLock(lockKey: string, ttlSeconds: number): Promise<LockResult | null> {
     this.assertOpen();
-    await this.redisConnectPromise;
-    this.assertOpen();
     const value = Math.random().toString();
     const result = await this.client.set(lockKey, value, 'EX', ttlSeconds, 'NX');
     if (result === 'OK') {
@@ -76,8 +71,6 @@ export class RedisLock {
   }
 
   private async releaseLock(lockKey: string, value: string): Promise<boolean> {
-    this.assertOpen();
-    await this.redisConnectPromise;
     this.assertOpen();
     const luaScript = `
     if redis.call("get", KEYS[1]) == ARGV[1] then
