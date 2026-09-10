@@ -8,9 +8,10 @@ describe('ResponseTransformInterceptor', () => {
 
   function createContext(statusCode: number, type = 'http', handler = () => {}) {
     const response = { statusCode };
-    const switchToHttp = jest.fn(() => ({ getResponse: () => response }));
+    const switchToHttp = jest.fn(() => ({ getResponse: () => response, getRequest: () => ({ method: 'GET' }) }));
     const context = {
       getHandler: () => handler,
+      getClass: () => class {},
       getType: () => type,
       switchToHttp,
     } as unknown as ExecutionContext;
