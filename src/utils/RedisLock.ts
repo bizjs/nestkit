@@ -1,4 +1,5 @@
 import { createClient } from 'redis';
+import { randomUUID } from 'node:crypto';
 export type RedisLockOptions = {
   redisUrl: string;
   connectionName?: string;
@@ -84,9 +85,12 @@ export class RedisLock {
   }
 
   async acquireLock(lockKey: string, ttlSeconds: number): Promise<LockResult | null> {
+    if (!Number.isSafeInteger(ttlSeconds) || ttlSeconds <= 0) {
+      throw new RangeError('ttlSeconds must be a positive safe integer');
+    }
     await this.ensureConnected();
     this.assertOpen();
-    const value = Math.random().toString();
+    const value = randomUUID();
     const result = await this.client.set(lockKey, value, { EX: ttlSeconds, NX: true });
     if (result === 'OK') {
       return {

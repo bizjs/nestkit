@@ -46,19 +46,28 @@ describe('RedisLock', () => {
     expect(client.eval).toHaveBeenLastCalledWith(expect.any(String), { keys: ['key'], arguments: [token, '10'] });
   });
   it('retains separate owner tokens for old and new locks', async () => {
-    const random = jest.spyOn(Math, 'random').mockReturnValueOnce(0.1).mockReturnValueOnce(0.2);
-    try {
-      client.set.mockResolvedValue('OK');
-      const old = await lock.acquireLock('key', 10);
-      const current = await lock.acquireLock('key', 20);
-      client.eval.mockResolvedValueOnce(0).mockResolvedValueOnce(1);
-      expect(await old!.extendLockTTL()).toBe(false);
-      expect(await current!.extendLockTTL()).toBe(true);
-      expect(client.eval.mock.calls.map((call: any[]) => call[1])).toEqual([
-        { keys: ['key'], arguments: ['0.1', '10'] }, { keys: ['key'], arguments: ['0.2', '20'] },
-      ]);
-    } finally { random.mockRestore(); }
+    client.set.mockResolvedValue('OK');
+    const old = await lock.acquireLock('key', 10);
+    const current = await lock.acquireLock('key', 20);
+    const oldToken = client.set.mock.calls[0][1];
+    const currentToken = client.set.mock.calls[1][1];
+    expect(oldToken).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    expect(currentToken).not.toBe(oldToken);
+    client.eval.mockResolvedValueOnce(0).mockResolvedValueOnce(1);
+    expect(await old!.extendLockTTL()).toBe(false);
+    expect(await current!.extendLockTTL()).toBe(true);
+    expect(client.eval.mock.calls.map((call: any[]) => call[1])).toEqual([
+      { keys: ['key'], arguments: [oldToken, '10'] }, { keys: ['key'], arguments: [currentToken, '20'] },
+    ]);
   });
+  it.each([0, -1, 1.5, NaN, Infinity, -Infinity, Number.MAX_SAFE_INTEGER + 1, '10', null, undefined])(
+    'rejects invalid TTL %p before connecting or issuing commands', async ttl => {
+      client.isOpen = client.isReady = false;
+      await expect(lock.acquireLock('key', ttl as number)).rejects.toThrow(RangeError);
+      expect(client.connect).not.toHaveBeenCalled();
+      expect(client.set).not.toHaveBeenCalled();
+    },
+  );
   it('shares the first connection across concurrent requests', async () => {
     client.isOpen = client.isReady = false;
     client.set.mockResolvedValue('OK');
