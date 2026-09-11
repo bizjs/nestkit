@@ -6,7 +6,10 @@
   "types": "dist/index.d.ts",
   "sideEffects": false,
   "files": [
-    "dist"
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "dist/**/*.js.map",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "rimraf ./dist && tsc",
@@ -59,5 +62,6 @@
     "cookie": "^1.0.2",
     "cookie-signature": "^1.2.2",
     "redis": "^5.12.1"
-  }
+  },
+  "packageManager": "pnpm@11.19.0"
 }
