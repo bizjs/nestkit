@@ -23,15 +23,35 @@ review clients that depend on validation error formatting.
 ## Develop
 
 ```bash
-# Install deps
-pnpm i
-
-# Build
+pnpm install --frozen-lockfile
 pnpm build
-
-# Publish
-pnpm run pub
+pnpm test
 ```
+
+## Publishing
+
+Update the version and changelog, then manually run **Publish to npm** in GitHub
+Actions on the branch to publish. The workflow installs dependencies, builds and
+publishes. It uses npm Trusted Publishing (OIDC), without `NODE_AUTH_TOKEN` or an
+npm token secret. Node.js 24 provides a compatible npm CLI (11.5.1 or later).
+
+Configure the GitHub Actions trusted publisher once in the npm settings for
+`@bizjs/nestkit`:
+
+- Organization or user: `bizjs`
+- Repository: `nestkit`
+- Workflow filename: `npm-publish.yml`
+- Environment: leave empty
+- Allow direct publishing with `npm publish`
+
+See [npm's trusted publishing documentation](https://docs.npmjs.com/trusted-publishers/).
+After the first successful OIDC publication, the old publishing token can be revoked.
+
+For local publishing, authenticate with `npm login`, then run `pnpm run pub`.
+This builds and publishes without running tests automatically. To preview the
+package locally, run `pnpm build` followed by `npm pack --dry-run`.
+JavaScript, `.d.ts` declarations, source maps and documentation are included;
+TypeScript incremental build caches are excluded.
 
 ## Response wrapping
 
