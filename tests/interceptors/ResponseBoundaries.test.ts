@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest';
 import { ExecutionContext, Redirect, Render, Sse, StreamableFile } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Readable } from 'node:stream';
@@ -5,14 +6,30 @@ import { firstValueFrom, of } from 'rxjs';
 import { PureResponse, ResponseTransformInterceptor } from '../../src';
 
 const interceptor = new ResponseTransformInterceptor(new Reflector());
-function run(value: unknown, options: { status?: number; method?: string; headers?: Record<string, string>; handler?: Function; controller?: Function; sent?: boolean; headersSent?: boolean } = {}) {
+function run(
+  value: unknown,
+  options: {
+    status?: number;
+    method?: string;
+    headers?: Record<string, string>;
+    handler?: Function;
+    controller?: Function;
+    sent?: boolean;
+    headersSent?: boolean;
+  } = {},
+) {
   const context = {
     getType: () => 'http',
     getHandler: () => options.handler || (() => {}),
     getClass: () => options.controller || class {},
     switchToHttp: () => ({
       getRequest: () => ({ method: options.method || 'GET' }),
-      getResponse: () => ({ statusCode: options.status || 200, sent: options.sent, headersSent: options.headersSent, getHeader: (name: string) => options.headers?.[name] }),
+      getResponse: () => ({
+        statusCode: options.status || 200,
+        sent: options.sent,
+        headersSent: options.headersSent,
+        getHeader: (name: string) => options.headers?.[name],
+      }),
     }),
   } as unknown as ExecutionContext;
   return firstValueFrom(interceptor.intercept(context, { handle: () => of(value) }));
@@ -23,7 +40,8 @@ describe('response wrapping boundaries', () => {
     class Controller {
       @Render('index') page() {}
       @PureResponse(false)
-      @Render('index') explicitlyWrapped() {}
+      @Render('index')
+      explicitlyWrapped() {}
     }
     const locals = { title: 'Welcome' };
     for (const handler of [Controller.prototype.page, Controller.prototype.explicitlyWrapped]) {
@@ -43,9 +61,12 @@ describe('response wrapping boundaries', () => {
     expect(await run(value, { headersSent: true })).toBe(value);
   });
 
-  it.each(['text/plain', 'text/html', 'text/event-stream', 'application/octet-stream'])('preserves %s payloads', async (type) => {
-    expect(await run('raw payload', { headers: { 'content-type': type } })).toBe('raw payload');
-  });
+  it.each(['text/plain', 'text/html', 'text/event-stream', 'application/octet-stream'])(
+    'preserves %s payloads',
+    async (type) => {
+      expect(await run('raw payload', { headers: { 'content-type': type } })).toBe('raw payload');
+    },
+  );
 
   it('preserves JSON downloads', async () => {
     const value = { id: 1 };
@@ -55,7 +76,14 @@ describe('response wrapping boundaries', () => {
   it('preserves files, streams, binary and absent values', async () => {
     const stream = Readable.from(['data']);
     try {
-      for (const value of [new StreamableFile(Buffer.from('file')), stream, Buffer.from('data'), new Uint8Array([1]), new ArrayBuffer(1), undefined]) {
+      for (const value of [
+        new StreamableFile(Buffer.from('file')),
+        stream,
+        Buffer.from('data'),
+        new Uint8Array([1]),
+        new ArrayBuffer(1),
+        undefined,
+      ]) {
         expect(await run(value)).toBe(value);
       }
     } finally {
@@ -88,11 +116,15 @@ describe('response wrapping boundaries', () => {
       inherited() {}
       @PureResponse(false) wrapped() {}
       @PureResponse(false)
-      @Sse() events() {}
+      @Sse()
+      events() {}
     }
     const value = { id: 1 };
     expect(await run(value, { controller: Controller, handler: Controller.prototype.inherited })).toBe(value);
-    expect(await run(value, { controller: Controller, handler: Controller.prototype.wrapped })).toHaveProperty('data', value);
+    expect(await run(value, { controller: Controller, handler: Controller.prototype.wrapped })).toHaveProperty(
+      'data',
+      value,
+    );
     expect(await run(value, { controller: Controller, handler: Controller.prototype.events })).toBe(value);
   });
 

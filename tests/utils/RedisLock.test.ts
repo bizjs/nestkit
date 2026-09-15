@@ -1,30 +1,46 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import type { Mock } from 'vitest';
 import { createClient } from 'redis';
 import { RedisLock } from '../../src';
 
-jest.mock('redis', () => ({
-  createClient: jest.fn(() => {
-    const client = new (require('node:events').EventEmitter)();
-    Object.assign(client, {
-      isReady: true,
-      isOpen: true,
-      set: jest.fn(),
-      eval: jest.fn(),
-      connect: jest.fn(async () => { client.isOpen = true; client.isReady = true; }),
-      close: jest.fn(async () => { client.isOpen = false; client.isReady = false; client.emit('end'); }),
-      destroy: jest.fn(() => { client.isOpen = false; client.isReady = false; client.emit('end'); }),
-    });
-    return client;
-  }),
-}));
+vi.mock('redis', async () => {
+  const { EventEmitter } = await import('node:events');
+  return {
+    createClient: vi.fn(() => {
+      const client = new EventEmitter();
+      Object.assign(client, {
+        isReady: true,
+        isOpen: true,
+        set: vi.fn(),
+        eval: vi.fn(),
+        connect: vi.fn(async () => {
+          client.isOpen = true;
+          client.isReady = true;
+        }),
+        close: vi.fn(async () => {
+          client.isOpen = false;
+          client.isReady = false;
+          client.emit('end');
+        }),
+        destroy: vi.fn(() => {
+          client.isOpen = false;
+          client.isReady = false;
+          client.emit('end');
+        }),
+      });
+      return client;
+    }),
+  };
+});
 
 describe('RedisLock', () => {
   let lock: RedisLock;
   let client: any;
   beforeEach(() => {
     lock = new RedisLock({ redisUrl: 'redis://localhost:6379', onError: () => {} });
-    client = (createClient as jest.Mock).mock.results.at(-1).value;
+    client = (createClient as Mock).mock.results.at(-1).value;
   });
-  afterEach(() => jest.clearAllMocks());
+  afterEach(() => vi.clearAllMocks());
 
   it('acquires with atomic NX and expiry options', async () => {
     client.set.mockResolvedValue('OK');
@@ -35,7 +51,7 @@ describe('RedisLock', () => {
     client.set.mockResolvedValue(null);
     expect(await lock.acquireLock('key', 10)).toBeNull();
   });
-  it.each([1, 0])('maps release/renewal result %i and supplies owner tokens', async result => {
+  it.each([1, 0])('maps release/renewal result %i and supplies owner tokens', async (result) => {
     client.set.mockResolvedValue('OK');
     client.eval.mockResolvedValue(result);
     const acquired = await lock.acquireLock('key', 10);
@@ -57,11 +73,13 @@ describe('RedisLock', () => {
     expect(await old!.extendLockTTL()).toBe(false);
     expect(await current!.extendLockTTL()).toBe(true);
     expect(client.eval.mock.calls.map((call: any[]) => call[1])).toEqual([
-      { keys: ['key'], arguments: [oldToken, '10'] }, { keys: ['key'], arguments: [currentToken, '20'] },
+      { keys: ['key'], arguments: [oldToken, '10'] },
+      { keys: ['key'], arguments: [currentToken, '20'] },
     ]);
   });
   it.each([0, -1, 1.5, NaN, Infinity, -Infinity, Number.MAX_SAFE_INTEGER + 1, '10', null, undefined])(
-    'rejects invalid TTL %p before connecting or issuing commands', async ttl => {
+    'rejects invalid TTL %p before connecting or issuing commands',
+    async (ttl) => {
       client.isOpen = client.isReady = false;
       await expect(lock.acquireLock('key', ttl as number)).rejects.toThrow(RangeError);
       expect(client.connect).not.toHaveBeenCalled();

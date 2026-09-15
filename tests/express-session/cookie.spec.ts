@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 
 import assert from 'node:assert';
 import type { CookieOptions } from '../../src/express-session/session/cookie.ts';
@@ -69,12 +69,8 @@ describe('new Cookie()', function () {
         let expires = new Date(Date.now() + 60000);
         let cookie = new Cookie({ expires: expires });
 
-        assert.ok(
-          expires.getTime() - Date.now() - 1000 <= (cookie.maxAge as number),
-        );
-        assert.ok(
-          expires.getTime() - Date.now() + 1000 >= (cookie.maxAge as number),
-        );
+        assert.ok(expires.getTime() - Date.now() - 1000 <= (cookie.maxAge as number));
+        assert.ok(expires.getTime() - Date.now() + 1000 >= (cookie.maxAge as number));
       });
     });
 
@@ -91,12 +87,8 @@ describe('new Cookie()', function () {
         let maxAge = 60000;
         let cookie = new Cookie({ maxAge: maxAge });
 
-        assert.ok(
-          (cookie.expires as Date).getTime() - Date.now() - 1000 <= maxAge,
-        );
-        assert.ok(
-          (cookie.expires as Date).getTime() - Date.now() + 1000 >= maxAge,
-        );
+        assert.ok((cookie.expires as Date).getTime() - Date.now() - 1000 <= maxAge);
+        assert.ok((cookie.expires as Date).getTime() - Date.now() + 1000 >= maxAge);
       });
 
       it('should set maxAge', function () {
@@ -112,16 +104,9 @@ describe('new Cookie()', function () {
         let maxAge = new Date(Date.now() + 60000);
         let cookie = new Cookie({ maxAge: maxAge.getTime() - Date.now() });
 
-        assert.ok(
-          Math.abs((cookie.expires as Date).getTime() - maxAge.getTime()) <
-            1000,
-        );
-        assert.ok(
-          maxAge.getTime() - Date.now() - 1000 <= (cookie.maxAge as number),
-        );
-        assert.ok(
-          maxAge.getTime() - Date.now() + 1000 >= (cookie.maxAge as number),
-        );
+        assert.ok(Math.abs((cookie.expires as Date).getTime() - maxAge.getTime()) < 1000);
+        assert.ok(maxAge.getTime() - Date.now() - 1000 <= (cookie.maxAge as number));
+        assert.ok(maxAge.getTime() - Date.now() + 1000 >= (cookie.maxAge as number));
       });
     });
 

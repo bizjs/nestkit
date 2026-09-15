@@ -1,7 +1,8 @@
+import { describe, test, expect, vi, afterEach } from 'vitest';
 import { WrappedMemoryCache } from '../../src';
 describe('WrappedMemoryCache', () => {
   test('getCachedValue ok', async () => {
-    const errorHandle = jest.fn();
+    const errorHandle = vi.fn();
     const cache = new WrappedMemoryCache({
       ttl: 10 * 1000, // 10s
       refreshThreshold: 3 * 1000, // 3s
@@ -26,7 +27,7 @@ describe('WrappedMemoryCache', () => {
   });
 
   test('getCachedValue failed', async () => {
-    const errorHandle = jest.fn();
+    const errorHandle = vi.fn();
     const cache = new WrappedMemoryCache({
       ttl: 10 * 1000, // 10s
       refreshThreshold: 3 * 1000, // 3s
@@ -89,7 +90,7 @@ describe('WrappedMemoryCache refresh failures', () => {
       return this.cache.get(key);
     }
     refreshed() {
-      return new Promise<void>(resolve => {
+      return new Promise<void>((resolve) => {
         const listener = () => {
           this.cache.off('refresh', listener);
           resolve();
@@ -99,17 +100,19 @@ describe('WrappedMemoryCache refresh failures', () => {
     }
   }
 
-  afterEach(() => jest.restoreAllMocks());
+  afterEach(() => vi.restoreAllMocks());
 
   test('failed background refresh preserves the old value without extending its lifetime', async () => {
     let now = Date.now();
-    jest.spyOn(Date, 'now').mockImplementation(() => now);
+    vi.spyOn(Date, 'now').mockImplementation(() => now);
     const error = new Error('upstream unavailable');
-    const loader = jest.fn().mockResolvedValueOnce('old').mockRejectedValue(error);
-    const onRefreshError = jest.fn();
+    const loader = vi.fn().mockResolvedValueOnce('old').mockRejectedValue(error);
+    const onRefreshError = vi.fn();
     const cache = new InspectableCache({
-      ttl: 10000, refreshThreshold: 3000,
-      refreshFn: loader, onRefreshError,
+      ttl: 10000,
+      refreshThreshold: 3000,
+      refreshFn: loader,
+      onRefreshError,
     });
 
     expect(await cache.getCachedValue('key')).toBe('old');
@@ -128,8 +131,8 @@ describe('WrappedMemoryCache refresh failures', () => {
 
   test('successful background refresh replaces the value', async () => {
     let now = Date.now();
-    jest.spyOn(Date, 'now').mockImplementation(() => now);
-    const loader = jest.fn().mockResolvedValueOnce('old').mockResolvedValue('new');
+    vi.spyOn(Date, 'now').mockImplementation(() => now);
+    const loader = vi.fn().mockResolvedValueOnce('old').mockResolvedValue('new');
     const cache = new InspectableCache({ ttl: 10000, refreshThreshold: 3000, refreshFn: loader });
     expect(await cache.getCachedValue('key')).toBe('old');
     now += 8000;
@@ -141,10 +144,13 @@ describe('WrappedMemoryCache refresh failures', () => {
 
   test('concurrent cold reads return undefined on a shared load failure and can retry', async () => {
     const error = new Error('unavailable');
-    const loader = jest.fn().mockRejectedValueOnce(error).mockResolvedValue('recovered');
-    const onRefreshError = jest.fn();
+    const loader = vi.fn().mockRejectedValueOnce(error).mockResolvedValue('recovered');
+    const onRefreshError = vi.fn();
     const cache = new WrappedMemoryCache({ ttl: 10000, refreshThreshold: 3000, refreshFn: loader, onRefreshError });
-    expect(await Promise.all([cache.getCachedValue('key'), cache.getCachedValue('key')])).toEqual([undefined, undefined]);
+    expect(await Promise.all([cache.getCachedValue('key'), cache.getCachedValue('key')])).toEqual([
+      undefined,
+      undefined,
+    ]);
     expect(loader).toHaveBeenCalledTimes(1);
     expect(onRefreshError).toHaveBeenCalledTimes(1);
     expect(await cache.getCachedValue('key')).toBe('recovered');

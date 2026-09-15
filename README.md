@@ -35,7 +35,7 @@ once; `pnpm run test:watch` starts watch mode. HTTPS tests use the committed fix
 
 `pnpm build` uses Vite Library mode to emit CommonJS (`.js`), ESM (`.mjs`),
 source maps, and TypeScript declarations in `dist/`. Dependencies and peer dependencies
-remain external. SWC preserves NestJS legacy decorators and dependency-injection metadata.
+remain external. Vite 8’s built-in Oxc transformation reads the TypeScript decorator and metadata options from `tsconfig.json`.
 The session library is available through `@bizjs/nestkit/express-session`.
 Existing source module paths remain available under `dist/`.
 
