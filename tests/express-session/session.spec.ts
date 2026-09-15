@@ -3,7 +3,6 @@ import { describe, it, beforeAll } from 'vitest';
 import { once } from 'node:events';
 import assert from 'node:assert';
 import cookieParser from 'cookie-parser';
-import crypto from 'node:crypto';
 import express from 'express';
 import fs from 'node:fs';
 import http from 'node:http';
@@ -41,30 +40,6 @@ describe('session()', function () {
       }
 
       request(createServer(setup)).get('/').expect(shouldNotHaveHeader('Set-Cookie')).expect(200, done);
-    });
-  });
-
-  it('should error without secret', function () {
-    return new Promise<void>((resolve, reject) => {
-      const done = (error?: unknown) => (error ? reject(error) : resolve());
-
-      request(createServer({ secret: undefined }))
-        .get('/')
-        .expect(500, /secret.*required/, done);
-    });
-  });
-
-  it('should require explicit secret even with req.secret', function () {
-    return new Promise<void>((resolve, reject) => {
-      const done = (error?: unknown) => (error ? reject(error) : resolve());
-
-      function setup(req: TestRequest) {
-        req.secret = 'keyboard cat';
-      }
-
-      request(createServer(setup, { secret: undefined }))
-        .get('/')
-        .expect(500, /secret.*required/, done);
     });
   });
 
@@ -510,7 +485,7 @@ describe('session()', function () {
     });
   });
 
-  describe('when sid not properly signed', function () {
+  describe('when the client supplies an unknown sid', function () {
     it('should generate new session', function () {
       return new Promise<void>((resolve, reject) => {
         const done = (error?: unknown) => (error ? reject(error) : resolve());
@@ -530,7 +505,7 @@ describe('session()', function () {
           .expect(shouldSetCookie('sessid'))
           .expect(200, 'session created', function (err, res) {
             if (err) return done(err);
-            let val = sid(res);
+            let val = sid(res) + '-unknown';
             assert.ok(val);
             request(server)
               .get('/')
@@ -542,7 +517,7 @@ describe('session()', function () {
       });
     });
 
-    it('should not attempt fetch from store', function () {
+    it('should replace an unknown cookie with a fresh session', function () {
       return new Promise<void>((resolve, reject) => {
         const done = (error?: unknown) => (error ? reject(error) : resolve());
 
@@ -561,7 +536,7 @@ describe('session()', function () {
           .expect(shouldSetCookie('sessid'))
           .expect(200, 'session created', function (err, res) {
             if (err) return done(err);
-            let val = cookie(res).replace(/...\./, '.');
+            let val = 'sessid=' + sid(res) + '-unknown';
 
             assert.ok(val);
             request(server)
@@ -1718,144 +1693,6 @@ describe('session()', function () {
     });
   });
 
-  describe('secret option', function () {
-    it('should reject empty arrays', function () {
-      assert.throws(createServer.bind(null, { secret: [] }), /secret option array/);
-    });
-
-    it('should sign and unsign with a string', function () {
-      return new Promise<void>((resolve, reject) => {
-        const done = (error?: unknown) => (error ? reject(error) : resolve());
-
-        let server: http.Server = createServer(
-          { secret: 'awesome cat' },
-          function (req: TestRequest, res: TestResponse) {
-            if (!req.session.user) {
-              req.session.user = 'bob';
-              res.end('set');
-            } else {
-              res.end('get:' + JSON.stringify(req.session.user));
-            }
-          },
-        );
-
-        request(server)
-          .get('/')
-          .expect(shouldSetCookie('connect.sid'))
-          .expect(200, 'set', function (err, res) {
-            if (err) return done(err);
-            request(server).get('/').set('Cookie', cookie(res)).expect(200, 'get:"bob"', done);
-          });
-      });
-    });
-
-    it('should sign and unsign with a Buffer', function () {
-      return new Promise<void>((resolve, reject) => {
-        const done = (error?: unknown) => (error ? reject(error) : resolve());
-
-        let server: http.Server = createServer(
-          { secret: crypto.randomBytes(32) },
-          function (req: TestRequest, res: TestResponse) {
-            if (!req.session.user) {
-              req.session.user = 'bob';
-              res.end('set');
-            } else {
-              res.end('get:' + JSON.stringify(req.session.user));
-            }
-          },
-        );
-
-        request(server)
-          .get('/')
-          .expect(shouldSetCookie('connect.sid'))
-          .expect(200, 'set', function (err, res) {
-            if (err) return done(err);
-            request(server).get('/').set('Cookie', cookie(res)).expect(200, 'get:"bob"', done);
-          });
-      });
-    });
-
-    describe('when an array', function () {
-      it('should sign cookies', function () {
-        return new Promise<void>((resolve, reject) => {
-          const done = (error?: unknown) => (error ? reject(error) : resolve());
-
-          let server: http.Server = createServer(
-            { secret: ['keyboard cat', 'nyan cat'] },
-            function (req: TestRequest, res: TestResponse) {
-              req.session.user = 'bob';
-              res.end(req.session.user);
-            },
-          );
-
-          request(server).get('/').expect(shouldSetCookie('connect.sid')).expect(200, 'bob', done);
-        });
-      });
-
-      it('should sign cookies with first element', function () {
-        return new Promise<void>((resolve, reject) => {
-          const done = (error?: unknown) => (error ? reject(error) : resolve());
-
-          let store = new session.MemoryStore();
-
-          let server1: http.Server = createServer(
-            { secret: ['keyboard cat', 'nyan cat'], store: store },
-            function (req: TestRequest, res: TestResponse) {
-              req.session.user = 'bob';
-              res.end(req.session.user);
-            },
-          );
-
-          let server2: http.Server = createServer(
-            { secret: 'nyan cat', store: store },
-            function (req: TestRequest, res: TestResponse) {
-              res.end(String(req.session.user));
-            },
-          );
-
-          request(server1)
-            .get('/')
-            .expect(shouldSetCookie('connect.sid'))
-            .expect(200, 'bob', function (err, res) {
-              if (err) return done(err);
-              request(server2).get('/').set('Cookie', cookie(res)).expect(200, 'undefined', done);
-            });
-        });
-      });
-
-      it('should read cookies using all elements', function () {
-        return new Promise<void>((resolve, reject) => {
-          const done = (error?: unknown) => (error ? reject(error) : resolve());
-
-          let store = new session.MemoryStore();
-
-          let server1: http.Server = createServer(
-            { secret: 'nyan cat', store: store },
-            function (req: TestRequest, res: TestResponse) {
-              req.session.user = 'bob';
-              res.end(req.session.user);
-            },
-          );
-
-          let server2: http.Server = createServer(
-            { secret: ['keyboard cat', 'nyan cat'], store: store },
-            function (req: TestRequest, res: TestResponse) {
-              res.end(String(req.session.user));
-            },
-          );
-
-          request(server1)
-            .get('/')
-            .expect(shouldSetCookie('connect.sid'))
-            .expect(200, 'bob', function (err, res) {
-              if (err) return done(err);
-              request(server2).get('/').set('Cookie', cookie(res)).expect(200, 'bob', done);
-            });
-        });
-      });
-    });
-  });
-
   describe('unset option', function () {
     it('should reject unknown values', function () {
       assert.throws(session.bind(null, { unset: 'bogus!' }), /unset.*must/);
@@ -2736,7 +2573,6 @@ describe('session()', function () {
 
         beforeAll(function () {
           app = createRequestListener({
-            secret: 'keyboard cat',
             cookie: { secure: true },
           });
         });
@@ -3061,7 +2897,7 @@ describe('session()', function () {
       });
     });
 
-    it('should reject unsigned from req.cookies', function () {
+    it('should ignore req.cookies for a custom cookie name', function () {
       return new Promise<void>((resolve, reject) => {
         const done = (error?: unknown) => (error ? reject(error) : resolve());
 
@@ -3086,33 +2922,6 @@ describe('session()', function () {
               .get('/')
               .set('Cookie', 'sessid=' + sid(res))
               .expect(200, '1', done);
-          });
-      });
-    });
-
-    it('should reject invalid signature from req.cookies', function () {
-      return new Promise<void>((resolve, reject) => {
-        const done = (error?: unknown) => (error ? reject(error) : resolve());
-
-        let app: Handler = express()
-          .use(cookieParser())
-          .use(function (req: TestRequest, res: TestResponse, next) {
-            req.headers.cookie = 'foo=bar';
-            next();
-          })
-          .use(createSession({ key: 'sessid' }))
-          .use(function (req: TestRequest, res: TestResponse, next) {
-            req.session.count = req.session.count || 0;
-            req.session.count++;
-            res.end(req.session.count.toString());
-          });
-
-        request(app)
-          .get('/')
-          .expect(200, '1', function (err, res) {
-            if (err) return done(err);
-            let val = cookie(res).replace(/...\./, '.');
-            request(app).get('/').set('Cookie', val).expect(200, '1', done);
           });
       });
     });
@@ -3186,7 +2995,6 @@ function createRequestListener(opts?: TestOptions | null, fn?: Handler): Handler
 function createSession(opts?: TestOptions | null): SessionMiddleware {
   const options = opts || {};
   if (!('cookie' in options)) options.cookie = { maxAge: 60 * 1000 };
-  if (!('secret' in options)) options.secret = 'keyboard cat';
   return session(options as SessionOptions);
 }
 
@@ -3330,7 +3138,5 @@ function shouldSetSessionInStore(store: Store, delay?: number) {
 function sid(res: request.Response): string {
   let header = cookie(res);
   let data = utils.parseSetCookie(header);
-  let value = data && unescape(data.value);
-  let sid = value && value.substring(2, value.indexOf('.'));
-  return sid!;
+  return decodeURIComponent(data.value);
 }

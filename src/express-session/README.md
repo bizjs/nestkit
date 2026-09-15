@@ -1,13 +1,13 @@
 ## SID transport options (local fork)
 
 Cookie transport remains enabled by default. Set `cookie: false` to disable reading
-session cookies, writing session `Set-Cookie`, and matching Cookie paths. This mode
-requires no `secret`. It leaves unrelated application cookies untouched.
+session cookies, writing session `Set-Cookie`, and matching Cookie paths. It leaves unrelated application cookies untouched.
 
 `getid(req)` reads a raw Store SID and returns a string, `null`, or `undefined`.
 When supplied, it replaces Cookie lookup entirely, including when it returns no ID.
 Exceptions are passed to `next(error)`. Missing or unknown IDs generate fresh IDs.
-With Cookie transport enabled, `secret` is still required for outgoing signed cookies.
+Cookies carry the raw random SID. Cookie signing and the `secret` option are not supported.
+Legacy signed cookies are not decoded and therefore start a new session.
 
 ```typescript
 app.use(session({
@@ -51,8 +51,8 @@ HTTPS tests read the committed certificate and key in `tests/express-session/fix
 To regenerate manually, run `sh tests/express-session/fixtures/gencert.sh` from the root.
 
 > Local TypeScript fork: debug logging uses `node:util.debuglog` and `NODE_DEBUG`.
-> With Cookie enabled, configure `secret` explicitly; `req.secret`, `req.cookies`, and `req.signedCookies`
-> fallbacks are no longer supported. Pass milliseconds to `maxAge`, or use `expires`
+> Cookie lookup reads the request header directly; `req.cookies` and `req.signedCookies`
+> fallbacks are not supported. Pass milliseconds to `maxAge`, or use `expires`
 > for a Date. Omitted `resave` and `saveUninitialized` still default to `true`,
 > without deprecation warnings. The upstream documentation below is retained for reference.
 
@@ -88,8 +88,7 @@ Session data is stored server-side.
 
 **Note** Since version 1.5.0, the [`cookie-parser` middleware](https://www.npmjs.com/package/cookie-parser)
 no longer needs to be used for this module to work. This module now directly reads
-and writes cookies on `req`/`res`. Using `cookie-parser` may result in issues
-if the `secret` is not the same between this module and `cookie-parser`.
+and writes cookies on `req`/`res`.
 
 **Warning** The default server-side session storage, `MemoryStore`, is _purposely_
 not designed for a production environment. It will leak memory under most
@@ -112,7 +111,6 @@ In addition to providing a static object, you can also pass a callback function 
 ```js
 var app = express()
 app.use(session({
-  secret: 'keyboard cat',
   resave: false,
   saveUninitialized: true,
   cookie: function(req) {
@@ -248,7 +246,6 @@ have your node.js behind a proxy and are using `secure: true`, you need to set
 var app = express()
 app.set('trust proxy', 1) // trust first proxy
 app.use(session({
-  secret: 'keyboard cat',
   resave: false,
   saveUninitialized: true,
   cookie: { secure: true }
@@ -261,7 +258,6 @@ the following is an example of enabling this setup based on `NODE_ENV` in expres
 ```js
 var app = express()
 var sess = {
-  secret: 'keyboard cat',
   cookie: {}
 }
 
@@ -366,34 +362,6 @@ will add an empty Passport object to the session for use after a user is
 authenticated, which will be treated as a modification to the session, causing
 it to be saved. *This has been fixed in PassportJS 0.3.0*
 
-##### secret
-
-**Required option**
-
-This is the secret used to sign the session ID cookie. The secret can be any type
-of value that is supported by Node.js `crypto.createHmac` (like a string or a
-`Buffer`). This can be either a single secret, or an array of multiple secrets. If
-an array of secrets is provided, only the first element will be used to sign the
-session ID cookie, while all the elements will be considered when verifying the
-signature in requests. The secret itself should be not easily parsed by a human and
-would best be a random set of characters. A best practice may include:
-
-  - The use of environment variables to store the secret, ensuring the secret itself
-    does not exist in your repository.
-  - Periodic updates of the secret, while ensuring the previous secret is in the
-    array.
-
-Using a secret that cannot be guessed will reduce the ability to hijack a session to
-only guessing the internally generated random session ID.
-
-Changing the secret value will invalidate all existing sessions. In order to rotate
-the secret without invalidating sessions, provide an array of secrets, with the new
-secret as first element of the array, and including previous secrets as the later
-elements.
-
-**Note** HMAC-256 is used to sign the session ID. For this reason, the secret should
-contain at least 32 bytes of entropy.
-
 ##### store
 
 The session store instance, defaults to a new `MemoryStore` instance.
@@ -417,7 +385,7 @@ are typically fine. For example below is a user-specific view counter:
 
 ```js
 // Use the session middleware
-app.use(session({ secret: 'keyboard cat', cookie: { maxAge: 60000 }}))
+app.use(session({ cookie: { maxAge: 60000 }}))
 
 // Access the session as req.session
 app.get('/', function(req, res, next) {
@@ -958,7 +926,6 @@ var session = require('express-session')
 var app = express()
 
 app.use(session({
-  secret: 'keyboard cat',
   resave: false,
   saveUninitialized: true
 }))
@@ -1000,7 +967,6 @@ var session = require('express-session')
 var app = express()
 
 app.use(session({
-  secret: 'keyboard cat',
   resave: false,
   saveUninitialized: true
 }))

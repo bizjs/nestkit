@@ -29,7 +29,6 @@ export interface SessionOptions {
   resave?: boolean;
   rolling?: boolean;
   saveUninitialized?: boolean;
-  secret?: string | string[];
   store?: Store;
   unset?: 'destroy' | 'keep';
 }
@@ -70,7 +69,6 @@ const warning =
  * @param {Boolean} [options.resave] Resave unmodified sessions back to the store
  * @param {Boolean} [options.rolling] Enable/disable rolling session expiration
  * @param {Boolean} [options.saveUninitialized] Save uninitialized sessions to the store
- * @param {String|Array} [options.secret] Secret for signing session ID
  * @param {Object} [options.store=MemoryStore] Session store
  * @param {String} [options.unset]
  * @return {Function} middleware
@@ -102,24 +100,12 @@ export function session(options?: SessionOptions): SessionMiddleware {
   // get the save uninitialized session option
   const saveUninitializedSession = opts.saveUninitialized ?? true;
 
-  // get the cookie signing secret
-  const configuredSecret = opts.secret;
-  const secret = configuredSecret
-    ? Array.isArray(configuredSecret)
-      ? configuredSecret
-      : [configuredSecret]
-    : undefined;
-
   if (opts.unset && opts.unset !== 'destroy' && opts.unset !== 'keep') {
     throw new TypeError('unset option must be "destroy" or "keep"');
   }
 
   // TODO: switch to "destroy" on next major
   const unsetDestroy = opts.unset === 'destroy';
-
-  if (cookieEnabled && Array.isArray(secret) && secret.length === 0) {
-    throw new TypeError('secret option array must contain one or more strings');
-  }
 
   // notify user that this store is not
   // meant for a production environment
@@ -195,14 +181,6 @@ export function session(options?: SessionOptions): SessionMiddleware {
       }
     }
 
-    // ensure a secret is available or bail
-    if (cookieEnabled && !secret) {
-      next(new Error('secret option required for sessions'));
-      return;
-    }
-
-    const secrets = secret || [];
-
     let originalHash: string | undefined;
     let originalId: string | undefined;
     let savedHash: string | undefined;
@@ -216,7 +194,7 @@ export function session(options?: SessionOptions): SessionMiddleware {
       incomingId = opts.getid
         ? opts.getid(req) || undefined
         : cookieEnabled
-          ? getcookie(req, name, secrets)
+          ? getcookie(req, name)
           : undefined;
     } catch (error) {
       next(error);
@@ -250,7 +228,7 @@ export function session(options?: SessionOptions): SessionMiddleware {
 
         // set cookie
         try {
-          setcookie(res, name, req.sessionID, secrets[0], req.session.cookie.data);
+          setcookie(res, name, req.sessionID, req.session.cookie.data);
         } catch (err) {
           defer(next, err);
         }

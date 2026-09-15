@@ -43,14 +43,26 @@ async function seed(store: MemoryStore, id: string) {
 }
 
 describe('SID transport', () => {
-  it('preserves signed Cookie transport by default', async () => {
-    const server = serverFor({ secret: 'test-secret' });
+  it('preserves raw SID Cookie transport without a secret', async () => {
+    const server = serverFor({});
     const first = await request(server).get('/').expect(200);
     const cookies = first.headers['set-cookie'];
     assert.ok(cookies);
+    assert.equal(decodeURIComponent(cookies[0].split(';')[0].slice('connect.sid='.length)), first.body.id);
     const second = await request(server).get('/').set('Cookie', cookies).expect(200);
     assert.equal(second.body.id, first.body.id);
     assert.equal(second.body.count, 2);
+  });
+
+  it('does not decode legacy signed cookies', async () => {
+    const server = serverFor({});
+    const first = await request(server).get('/').expect(200);
+    const second = await request(server)
+      .get('/')
+      .set('Cookie', 'connect.sid=' + encodeURIComponent('s:' + first.body.id + '.legacy-signature'))
+      .expect(200);
+    assert.notEqual(second.body.id, first.body.id);
+    assert.equal(second.body.count, 1);
   });
 
   it('loads a Header SID without a secret or Set-Cookie', async () => {
@@ -65,7 +77,7 @@ describe('SID transport', () => {
 
   it('ignores an otherwise valid session Cookie when disabled', async () => {
     const store = new MemoryStore();
-    const cookieServer = serverFor({ store, secret: 'test-secret' });
+    const cookieServer = serverFor({ store });
     const first = await request(cookieServer).get('/').expect(200);
     const headerServer = serverFor({ store, cookie: false, getid });
     const second = await request(headerServer).get('/').set('Cookie', first.headers['set-cookie']).expect(200);
@@ -77,7 +89,7 @@ describe('SID transport', () => {
   it('uses a custom reader exclusively even with Cookie transport enabled', async () => {
     const store = new MemoryStore();
     await seed(store, 'header-session');
-    const server = serverFor({ store, secret: 'test-secret', getid });
+    const server = serverFor({ store, getid });
     const first = await request(server).get('/').expect(200);
     const selected = await request(server)
       .get('/')

@@ -2,7 +2,6 @@ import crypto, { randomBytes } from 'node:crypto';
 import type { TLSSocket } from 'node:tls';
 import { parse, serialize } from 'cookie';
 import type { SerializeOptions } from 'cookie';
-import signature from 'cookie-signature';
 import type { ServerResponse } from 'node:http';
 import { debuglog } from 'node:util';
 import type { HttpSessionRequest } from './index';
@@ -29,32 +28,9 @@ export function generateSessionId() {
  * @private
  */
 
-export function getcookie(req: HttpSessionRequest, name: string, secrets: string[]) {
+export function getcookie(req: HttpSessionRequest, name: string) {
   const header = req.headers.cookie;
-  let raw: string | undefined;
-  let val: string | false | undefined;
-
-  // read from cookie header
-  if (header) {
-    const cookies = parse(header);
-
-    raw = cookies[name];
-
-    if (raw) {
-      if (raw.substr(0, 2) === 's:') {
-        val = unsigncookie(raw.slice(2), secrets);
-
-        if (val === false) {
-          debug('cookie signature invalid');
-          val = undefined;
-        }
-      } else {
-        debug('cookie unsigned');
-      }
-    }
-  }
-
-  return val || undefined;
+  return header ? parse(header)[name] || undefined : undefined;
 }
 
 /**
@@ -119,9 +95,8 @@ export function issecure(req: HttpSessionRequest, trustProxy?: boolean) {
  * @private
  */
 
-export function setcookie(res: ServerResponse, name: string, val: string, secret: string, options: CookieData) {
-  const signed = 's:' + signature.sign(val, secret);
-  const data = serialize(name, signed, options as SerializeOptions);
+export function setcookie(res: ServerResponse, name: string, val: string, options: CookieData) {
+  const data = serialize(name, val, options as SerializeOptions);
 
   debug('set-cookie %s', data);
 
@@ -129,24 +104,4 @@ export function setcookie(res: ServerResponse, name: string, val: string, secret
   const header = Array.isArray(prev) ? prev.concat(data) : [String(prev), data];
 
   res.setHeader('Set-Cookie', header);
-}
-
-/**
- * Verify and decode the given `val` with `secrets`.
- *
- * @param {String} val
- * @param {Array} secrets
- * @returns {String|Boolean}
- * @private
- */
-function unsigncookie(val: string, secrets: string[]) {
-  for (let i = 0; i < secrets.length; i++) {
-    const result = signature.unsign(val, secrets[i]);
-
-    if (result !== false) {
-      return result;
-    }
-  }
-
-  return false;
 }
