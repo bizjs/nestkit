@@ -50,6 +50,7 @@ async function bootstrap() {
     },
     store: new expressSession.MemoryStore(),
     resave: false,
+    touchInterval: 5 * 60 * 1000,
     saveUninitialized: false,
   }));
 
@@ -163,7 +164,11 @@ SID 是访问会话的凭证，应通过 HTTPS 传输，避免写入 URL 和日�
 - `getid` 抛出的异常传给 `next(error)`。
 - 关闭 Cookie 且未配置 `getid` 时，每次请求都会创建新会话。
 - Header 模式默认没有过期时间，创建会话时可设置 `req.session.cookie.maxAge`。
-- 当前保留原有自动保存与 touch 流程：修改的会话保存到 Store；未修改的会话在 Store 支持 `touch` 时续期。尚未实现“最小 5 分钟续期间隔”。
+- `touchInterval` 设置未修改会话的最小续期间隔，单位毫秒，默认 `0`（每次请求都可续期）。示例设为 `5 * 60 * 1000`，需配合 `resave: false`。
+- 间隔内未修改的会话不调用 Store `touch`，也不自动推进内存中的过期时间；到达间隔后，下一次请求才续期。Cookie 模式下即使 `rolling: true` 仍发送 Cookie，间隔内的过期时间也不会推进。
+- 会话数据有修改时立即保存并刷新过期时间，不受间隔限制；显式 `save()` 同样不受限制。判断依据是会话数据，不是 GET/POST 方法。
+- 通过 Store 中的 `cookie.expires - cookie.originalMaxAge` 推算上次续期，不增加额外字段。Store 的 `touch` 必须同步持久化 Cookie 过期元数据；只更新外部 TTL 的 Store 无法持续按该间隔节流。没有可推算的过期元数据时保持每次请求可续期。
+- 间隔应小于 `maxAge`。正常按请求续期时，相比每次访问都续期，会话可能提前最多约一个间隔失效；已过期的会话不会被重新续期。并发请求可能同时触发续期，该配置不提供跨请求锁。
 - `rolling` 控制响应 Cookie 的刷新；关闭 Cookie 后，它不控制 Header 返回，也不提供续期限流。
 
 ## Cookie 模式
@@ -195,6 +200,7 @@ Cookie 中保存原始随机 SID，无需 `secret`。旧签名 Cookie 不会恢�
 | `name` | `connect.sid` | Session Cookie 名称 |
 | `store` | 新建 `MemoryStore` | 会话存储 |
 | `resave` | `true` | 是否保存未修改的会话；示例显式设为 `false` |
+| `touchInterval` | `0` | 未修改会话的最小续期间隔（毫秒），建议配合 `resave: false` 和 `maxAge` |
 | `saveUninitialized` | `true` | 是否保存新建且未修改的会话；示例显式设为 `false` |
 | `rolling` | `false` | 是否每次响应都刷新 session Cookie |
 | `proxy` | 未设置 | 是否信任 `X-Forwarded-Proto`；未设置时使用 Express 的 `req.secure` 判断，TLS 连接直接判为安全 |

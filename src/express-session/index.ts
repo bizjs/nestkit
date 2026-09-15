@@ -32,6 +32,8 @@ export interface SessionOptions {
   proxy?: boolean;
   /** Save unmodified sessions back to the store. Defaults to true. */
   resave?: boolean;
+  /** Minimum interval between unchanged-session renewals in milliseconds. Defaults to 0. */
+  touchInterval?: number;
   /** Refresh the session cookie on every response. Defaults to false. */
   rolling?: boolean;
   /** Save new, unmodified sessions to the store. Defaults to true. */
@@ -86,6 +88,7 @@ export function session(options?: SessionOptions): SessionMiddleware {
 
   // get the resave session option
   const resaveSession = opts.resave ?? true;
+  const touchInterval = opts.touchInterval ?? 0;
 
   // get the rolling session option
   const rollingSessions = Boolean(opts.rolling);
@@ -169,6 +172,7 @@ export function session(options?: SessionOptions): SessionMiddleware {
     let originalId: string | undefined;
     let savedHash: string | undefined;
     let touched = false;
+    let lastTouchedAt: number | undefined;
 
     // expose store
     req.sessionStore = store;
@@ -200,7 +204,7 @@ export function session(options?: SessionOptions): SessionMiddleware {
           return;
         }
 
-        if (!touched) {
+        if (!touched && (shouldSave(req) || isTouchDue())) {
           // touch session
           req.session.touch();
           touched = true;
@@ -299,7 +303,7 @@ export function session(options?: SessionOptions): SessionMiddleware {
         return _end.call(res, chunk, encoding);
       }
 
-      if (!touched) {
+      if (!touched && (shouldSave(req) || isTouchDue())) {
         // touch session
         req.session.touch();
         touched = true;
@@ -346,6 +350,10 @@ export function session(options?: SessionOptions): SessionMiddleware {
       store.createSession(req, sess);
       originalId = req.sessionID;
       originalHash = hash(sess);
+      const { expires, originalMaxAge } = req.session!.cookie;
+      lastTouchedAt = expires instanceof Date && typeof originalMaxAge === 'number'
+        ? expires.valueOf() - originalMaxAge
+        : undefined;
 
       if (!resaveSession) {
         savedHash = originalHash;
@@ -376,6 +384,11 @@ export function session(options?: SessionOptions): SessionMiddleware {
 
       function save(this: Session, ...args: Parameters<Session['save']>) {
         debug('saving %s', this.id);
+        if (touchInterval > 0) {
+          if (!touched) this.touch();
+          touched = true;
+          lastTouchedAt = Date.now();
+        }
         savedHash = hash(this);
         _save.apply(this, args);
       }
@@ -423,6 +436,11 @@ export function session(options?: SessionOptions): SessionMiddleware {
         : !isSaved(req.session!);
     }
 
+    // Use the persisted expiry to share renewal timing across requests and processes.
+    function isTouchDue() {
+      return touchInterval <= 0 || lastTouchedAt === undefined || Date.now() - lastTouchedAt >= touchInterval;
+    }
+
     // determine if session should be touched
     function shouldTouch(req: HttpSessionRequest) {
       // cannot set cookie without a session ID
@@ -431,7 +449,7 @@ export function session(options?: SessionOptions): SessionMiddleware {
         return false;
       }
 
-      return incomingId === req.sessionID && !shouldSave(req);
+      return incomingId === req.sessionID && !shouldSave(req) && isTouchDue();
     }
 
     // determine if cookie should be set on response
