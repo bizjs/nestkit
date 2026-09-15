@@ -1,3 +1,26 @@
+## 1.1.0
+
+### Added
+
+- Add a TypeScript session middleware based on `expressjs/session`, exported as `expressSession`, with generic `SessionInstance<T>` for application fields and NestJS `@Session()` usage.
+- Support `cookie: false` to disable session Cookie transport, and `getid(req, name)` to read a SID from headers or implement explicit Header-to-Cookie fallback.
+- Add `touchInterval` in milliseconds to reduce renewal writes for unchanged sessions. The default is `0`; modified sessions and explicit saves are not throttled.
+- Document NestJS setup, login/logout, SID retrieval, Cookie and Header examples, and differences from upstream.
+- Add session transport and renewal-interval regression tests alongside the migrated upstream session suite.
+
+### Changed
+
+- Generate session IDs internally with Node.js `crypto.randomBytes(24)` and base64url encoding. The new middleware omits upstream `genid`, `secret`, Cookie signing, and the `key` alias; use `name` for the Cookie name.
+- Use native Node.js utilities for session randomness, Buffer operations, and debug logging. Extract session helpers and simplify request-path parsing.
+- Replace Jest with Vitest and V8 coverage. Run all tests with `pnpm test`, or select session tests with `pnpm test express-session`.
+- Replace the TypeScript-only build with Vite Library, emitting CommonJS, ESM, source maps, and declarations. Configure Oxc decorator metadata for tests and update package exports and dependencies.
+
+### Notes
+
+- The new middleware does not decode upstream signed cookies; clients carrying them start a new session. Existing `syncSessionIdFromHeader` and `getSignedSessionId` helpers remain available for the original `express-session` package.
+- Use `touchInterval` with `resave: false` and an interval shorter than the session lifetime. Throttling relies on persisted `cookie.expires` and `cookie.originalMaxAge`; stores that only update an external TTL cannot maintain this interval across requests.
+- An unchanged session may expire up to approximately one interval earlier than with per-request renewal. Concurrent requests may still renew together.
+
 ## 1.0.0
 
 ### Breaking changes

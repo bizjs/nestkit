@@ -20,13 +20,28 @@ Enable `transform: true` to pass transformed DTO instances to handlers. Configur
 messages and handling of edge cases differ from the removed implementation;
 review clients that depend on validation error formatting.
 
+## Session
+
+Use `import { expressSession } from '@bizjs/nestkit'` for the TypeScript session middleware with optional Cookie transport and a custom SID reader. See the [Session guide](src/express-session/README.md) for upstream links, current changes, NestJS setup, and Header SID login examples.
+
 ## Develop
 
 ```bash
 pnpm install --frozen-lockfile
 pnpm build
 pnpm test
+pnpm test express-session
+pnpm run test:cov
 ```
+
+Tests use Vitest for both toolkit unit tests and session tests. `pnpm test` runs
+once; `pnpm run test:watch` starts watch mode. HTTPS tests use the committed fixtures.
+
+`pnpm build` uses Vite Library mode to emit CommonJS (`.js`), ESM (`.mjs`),
+source maps, and TypeScript declarations in `dist/`. Dependencies and peer dependencies
+remain external. Vite 8’s built-in Oxc transformation reads the TypeScript decorator and metadata options from `tsconfig.json`.
+The session library is available through `@bizjs/nestkit/express-session`.
+Existing source module paths remain available under `dist/`.
 
 ## Publishing
 

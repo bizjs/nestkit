@@ -1,11 +1,12 @@
+import { describe, it, expect, vi } from 'vitest';
 import { createClient } from 'redis';
 import { createRedisStore } from '../../src';
 
 describe('createRedisStore', () => {
   it('uses the caller-owned client without connecting or closing it', () => {
     const client = createClient();
-    const connect = jest.spyOn(client, 'connect');
-    const close = jest.spyOn(client, 'close');
+    const connect = vi.spyOn(client, 'connect');
+    const close = vi.spyOn(client, 'close');
     const store = createRedisStore(client, { prefix: 'app:sess:' });
     expect(store.client).toBe(client);
     expect(store.prefix).toBe('app:sess:');
