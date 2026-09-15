@@ -10,17 +10,17 @@
 
 ## 相对原版的改动
 
-| 项目 | 当前实现 |
-| --- | --- |
-| 实现与分发 | TypeScript 源码，通过 NestKit 子路径导出；Vite Library 构建 ESM、CommonJS 和类型声明 |
-| 关闭 Cookie | `cookie: false` 禁用 session Cookie 读写与路径匹配，不影响应用的其他 Cookie |
-| 自定义 SID 来源 | `getid(req)` 从 Header 等位置读取原始 SID；配置后不再回退读取 Cookie |
-| SID 生成 | 内部使用 `crypto.randomBytes(24).toString('base64url')`，移除 `genid` 自定义选项 |
-| Cookie 签名 | 移除签名、验签及 `secret` 选项，Cookie 直接携带 SID；不解码旧签名 Cookie |
-| Cookie 名称 | 仅保留 `name`，默认 `connect.sid`；移除 `key` 别名 |
-| 旧字段兼容 | 不从 `req.cookies`、`req.signedCookies` 读取 SID |
-| 原生能力 | 随机数、Buffer、调试日志使用 Node.js 内置能力；路径解析直接截掉查询字符串 |
-| 测试 | 上游测试迁移到 TypeScript + Vitest，并增加 Header 和禁用 Cookie 的用例 |
+| 项目            | 当前实现                                                                             |
+| --------------- | ------------------------------------------------------------------------------------ |
+| 实现与分发      | TypeScript 源码，通过 NestKit 子路径导出；Vite Library 构建 ESM、CommonJS 和类型声明 |
+| 关闭 Cookie     | `cookie: false` 禁用 session Cookie 读写与路径匹配，不影响应用的其他 Cookie          |
+| 自定义 SID 来源 | `getid(req, sessionIdName)` 从 Header 等位置读取原始 SID；配置后不再回退读取 Cookie  |
+| SID 生成        | 内部使用 `crypto.randomBytes(24).toString('base64url')`，移除 `genid` 自定义选项     |
+| Cookie 签名     | 移除签名、验签及 `secret` 选项，Cookie 直接携带 SID；不解码旧签名 Cookie             |
+| Cookie 名称     | 仅保留 `name`，默认 `connect.sid`；移除 `key` 别名                                   |
+| 旧字段兼容      | 不从 `req.cookies`、`req.signedCookies` 读取 SID                                     |
+| 原生能力        | 随机数、Buffer、调试日志使用 Node.js 内置能力；路径解析直接截掉查询字符串            |
+| 测试            | 上游测试迁移到 TypeScript + Vitest，并增加 Header 和禁用 Cookie 的用例               |
 
 路径解析面向 `/path?query` 形式的常规 HTTP 请求目标，不解析完整代理 URL，也不规范化原始路径。Cookie 路径匹配当前仍使用前缀判断。
 
@@ -42,17 +42,19 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  app.use(expressSession({
-    cookie: false,
-    getid(req) {
-      const sid = req.headers['x-session-id'];
-      return typeof sid === 'string' ? sid : undefined;
-    },
-    store: new expressSession.MemoryStore(),
-    resave: false,
-    touchInterval: 5 * 60 * 1000,
-    saveUninitialized: false,
-  }));
+  app.use(
+    expressSession({
+      cookie: false,
+      getid(req) {
+        const sid = req.headers['x-session-id'];
+        return typeof sid === 'string' ? sid : undefined;
+      },
+      store: new expressSession.MemoryStore(),
+      resave: false,
+      touchInterval: 5 * 60 * 1000,
+      saveUninitialized: false,
+    }),
+  );
 
   await app.listen(3000);
 }
@@ -86,16 +88,12 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('login')
-  async login(
-    @Body() dto: LoginDto,
-    @Session() session: SessionInstance<AuthSession>,
-    @Req() req: HttpSessionRequest,
-  ) {
+  async login(@Body() dto: LoginDto, @Session() session: SessionInstance<AuthSession>, @Req() req: HttpSessionRequest) {
     const user = await this.authService.validate(dto);
 
     // 登录成功后换一个 SID，随后从 req.sessionID 读取新值。
     await new Promise<void>((resolve, reject) => {
-      session.regenerate((error) => error ? reject(error) : resolve());
+      session.regenerate((error) => (error ? reject(error) : resolve()));
     });
 
     // regenerate 替换了会话对象，必须读取 req.session 中的新实例。
@@ -116,7 +114,7 @@ export class AuthController {
   @Post('logout')
   async logout(@Session() session: SessionInstance<AuthSession>) {
     await new Promise<void>((resolve, reject) => {
-      session.destroy((error) => error ? reject(error) : resolve());
+      session.destroy((error) => (error ? reject(error) : resolve()));
     });
     return { success: true };
   }
@@ -176,49 +174,91 @@ SID 是访问会话的凭证，应通过 HTTPS 传输，避免写入 URL 和日�
 如果客户端使用 Cookie，省略 `getid` 并提供 Cookie 选项即可：
 
 ```ts
-app.use(expressSession({
-  name: 'connect.sid',
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: true, // HTTPS 环境；本地 HTTP 开发时设为 false。
-    maxAge: 24 * 60 * 60 * 1000,
-  },
-}));
+app.use(
+  expressSession({
+    name: 'connect.sid',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: true, // HTTPS 环境；本地 HTTP 开发时设为 false。
+      maxAge: 24 * 60 * 60 * 1000,
+    },
+  }),
+);
 ```
 
 Cookie 中保存原始随机 SID，无需 `secret`。旧签名 Cookie 不会恢复旧会话。
 
+## Header 优先，缺失时读取 Cookie
+
+在 `getid` 内显式实现回退。此示例保持 Cookie 开启，因此满足写入条件时仍会发送 session `Set-Cookie`。
+
+示例使用 `cookie` 包解析请求头；应用直接引用时将它加入自己的依赖：`pnpm add cookie`。
+
+```ts
+import { expressSession } from '@bizjs/nestkit';
+import { parse } from 'cookie';
+
+const sessionIdName = 'x-sid';
+app.use(
+  expressSession({
+    name: sessionIdName,
+    getid(req, name) {
+      const sid = req.headers[name.toLowerCase()];
+      if (typeof sid === 'string' && sid) return sid;
+
+      const cookies = req.headers.cookie;
+      return cookies ? parse(cookies)[name] : undefined;
+    },
+    resave: false,
+    saveUninitialized: false,
+    touchInterval: 5 * 60 * 1000,
+    cookie: {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: true, // HTTPS 环境；本地 HTTP 开发时设为 false。
+      maxAge: 24 * 60 * 60 * 1000,
+    },
+  }),
+);
+```
+
+- Header 和 Cookie 共用配置的 `name`；本例请求头为 `x-sid: <sid>`。有非空字符串 Header SID 时优先使用 Header，即使同时携带 Cookie。
+- Header 缺失或为空：读取名为 `x-sid` 的 Cookie；两者都没有则创建新会话。
+- Header SID 未知或已过期：创建新会话，不再尝试 Cookie。回退判断的是 Header 是否提供值，不是 Store 查询是否成功。
+
+`getid` 的第二个参数是中间件解析后的 Cookie 名称，未配置时为 `connect.sid`，Header 读取使用 `name.toLowerCase()`，Cookie 读取使用原始 `name`。当前示例默认使用 MemoryStore，需要持久化时传入项目的 Store。
+
 ## 配置选项
 
-| 选项 | 默认值 | 说明 |
-| --- | --- | --- |
-| `cookie` | 默认 Cookie 配置 | 配置对象、按请求返回配置的函数，或 `false` |
-| `getid` | 未设置 | 自定义读取 SID，优先于 Cookie |
-| `name` | `connect.sid` | Session Cookie 名称 |
-| `store` | 新建 `MemoryStore` | 会话存储 |
-| `resave` | `true` | 是否保存未修改的会话；示例显式设为 `false` |
-| `touchInterval` | `0` | 未修改会话的最小续期间隔（毫秒），建议配合 `resave: false` 和 `maxAge` |
-| `saveUninitialized` | `true` | 是否保存新建且未修改的会话；示例显式设为 `false` |
-| `rolling` | `false` | 是否每次响应都刷新 session Cookie |
-| `proxy` | 未设置 | 是否信任 `X-Forwarded-Proto`；未设置时使用 Express 的 `req.secure` 判断，TLS 连接直接判为安全 |
-| `unset` | `keep` | 清空 `req.session` 时保留还是销毁 Store 数据 |
+| 选项                | 默认值             | 说明                                                                                          |
+| ------------------- | ------------------ | --------------------------------------------------------------------------------------------- |
+| `cookie`            | 默认 Cookie 配置   | 配置对象、按请求返回配置的函数，或 `false`                                                    |
+| `getid`             | 未设置             | `getid(req, sessionIdName)` 自定义读取 SID，第二个参数是实际 Cookie 名称                      |
+| `name`              | `connect.sid`      | Session Cookie 名称                                                                           |
+| `store`             | 新建 `MemoryStore` | 会话存储                                                                                      |
+| `resave`            | `true`             | 是否保存未修改的会话；示例显式设为 `false`                                                    |
+| `touchInterval`     | `0`                | 未修改会话的最小续期间隔（毫秒），建议配合 `resave: false` 和 `maxAge`                        |
+| `saveUninitialized` | `true`             | 是否保存新建且未修改的会话；示例显式设为 `false`                                              |
+| `rolling`           | `false`            | 是否每次响应都刷新 session Cookie                                                             |
+| `proxy`             | 未设置             | 是否信任 `X-Forwarded-Proto`；未设置时使用 Express 的 `req.secure` 判断，TLS 连接直接判为安全 |
+| `unset`             | `keep`             | 清空 `req.session` 时保留还是销毁 Store 数据                                                  |
 
 ## Store 与常用方法
 
 导出的 `Store` 定义 `get`、`set`、`destroy`，并可实现 `touch`。数据中需保留 `cookie` 过期元数据，持久化 Store 应负责过期判断及清理。第三方 Store 的类型和过期行为需要按实际实现核对。
 
-| 方法 / 字段 | 用途 |
-| --- | --- |
-| `req.sessionID` | 当前 SID |
-| `req.session` | 会话数据及操作方法 |
-| `req.session.save(callback)` | 显式保存 |
+| 方法 / 字段                        | 用途                                                     |
+| ---------------------------------- | -------------------------------------------------------- |
+| `req.sessionID`                    | 当前 SID                                                 |
+| `req.session`                      | 会话数据及操作方法                                       |
+| `req.session.save(callback)`       | 显式保存                                                 |
 | `req.session.regenerate(callback)` | 销毁旧会话并生成新 SID；回调成功后重新读取 `req.session` |
-| `req.session.reload(callback)` | 从 Store 重新加载 |
-| `req.session.destroy(callback)` | 销毁会话 |
-| `req.session.touch()` | 重置内存中的过期时间，不直接写入 Store |
+| `req.session.reload(callback)`     | 从 Store 重新加载                                        |
+| `req.session.destroy(callback)`    | 销毁会话                                                 |
+| `req.session.touch()`              | 重置内存中的过期时间，不直接写入 Store                   |
 
 ## 本地测试与构建
 

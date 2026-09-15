@@ -24,8 +24,8 @@ export interface HttpSessionRequest extends IncomingMessage, SessionRequest {
 export interface SessionOptions {
   /** false disables SID cookie transport; session.cookie remains expiry metadata. */
   cookie?: false | CookieOptions | ((request: HttpSessionRequest) => CookieOptions);
-  /** Read an unsigned SID. When configured, Cookie is never used as a fallback. */
-  getid?: (request: HttpSessionRequest) => string | null | undefined;
+  /** Read a raw SID with the resolved cookie name. No automatic Cookie fallback. */
+  getid?: (request: HttpSessionRequest, name: string) => string | null | undefined;
   /** Session ID cookie name. Defaults to 'connect.sid'. */
   name?: string;
   /** Trust X-Forwarded-Proto for HTTPS detection. When omitted, use req.secure. */
@@ -179,7 +179,7 @@ export function session(options?: SessionOptions): SessionMiddleware {
 
     let incomingId: string | undefined;
     try {
-      incomingId = opts.getid ? opts.getid(req) || undefined : cookieEnabled ? getcookie(req, name) : undefined;
+      incomingId = opts.getid ? opts.getid(req, name) || undefined : cookieEnabled ? getcookie(req, name) : undefined;
     } catch (error) {
       next(error);
       return;
