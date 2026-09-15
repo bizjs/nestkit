@@ -20,6 +20,10 @@ Enable `transform: true` to pass transformed DTO instances to handlers. Configur
 messages and handling of edge cases differ from the removed implementation;
 review clients that depend on validation error formatting.
 
+## Session
+
+Use `import { expressSession } from '@bizjs/nestkit'` for the TypeScript session middleware with optional Cookie transport and a custom SID reader. See the [Session guide](src/express-session/README.md) for upstream links, current changes, NestJS setup, and Header SID login examples.
+
 ## Develop
 
 ```bash

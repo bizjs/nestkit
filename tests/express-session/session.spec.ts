@@ -8,8 +8,9 @@ import fs from 'node:fs';
 import http from 'node:http';
 import https from 'node:https';
 import request from 'supertest';
-import session from '../../src/express-session/index.ts';
-import type { SessionOptions, SessionMiddleware, Store, SessionData } from '../../src/express-session/index.ts';
+import { expressSession as session } from '../../src';
+import type { SessionOptions, SessionMiddleware } from '../../src';
+import type { Store, SessionData } from '../../src/express-session';
 
 // Fixtures deliberately exercise missing, malformed and dynamically added session fields.
 type TestRequest = http.IncomingMessage & { [key: string]: any };
@@ -21,7 +22,7 @@ type ResponseAssertion = (res: request.Response) => void;
 import SmartStore from './support/smart-store.ts';
 import SyncStore from './support/sync-store.ts';
 import * as utils from './support/utils.ts';
-import { Cookie } from '../../src/express-session/session/cookie.ts';
+import { Cookie } from '../../src/express-session';
 let min = 60 * 1000;
 
 describe('session()', function () {

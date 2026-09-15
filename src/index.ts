@@ -19,3 +19,7 @@ export { createRedisStore } from './utils/createRedisStore';
 export { RedisLock } from './utils/RedisLock';
 export { WrappedMemoryCache, type WrappedMemoryCacheOptions } from './utils/WrappedMemoryCache';
 export { syncSessionIdFromHeader, getSignedSessionId } from './utils/sessionFromHeader';
+
+// Session
+export { expressSession } from './express-session';
+export type { HttpSessionRequest, SessionOptions, SessionMiddleware, SessionInstance } from './express-session';

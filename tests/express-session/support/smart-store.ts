@@ -1,7 +1,7 @@
-import { Store } from '../../../src/express-session/session/store.ts';
-import type { SessionData, StoreCallback } from '../../../src/express-session/session/store.ts';
+import { expressSession } from '../../../src';
+import type { SessionData, StoreCallback } from '../../../src/express-session';
 
-export default class SmartStore extends Store {
+export default class SmartStore extends expressSession.Store {
   sessions: Record<string, string> = Object.create(null);
 
   destroy(id: string, callback?: StoreCallback): void {

@@ -1,8 +1,8 @@
 import { describe, it } from 'vitest';
 
 import assert from 'node:assert';
-import type { CookieOptions } from '../../src/express-session/session/cookie.ts';
-import { Cookie } from '../../src/express-session/session/cookie.ts';
+import type { CookieOptions } from '../../src/express-session';
+import { Cookie } from '../../src/express-session';
 describe('new Cookie()', function () {
   it('should create a new cookie object', function () {
     assert.strictEqual(typeof new Cookie(), 'object');

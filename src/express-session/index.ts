@@ -12,6 +12,8 @@ import type { SessionData, SessionRequest, StoreCallback } from './session/store
 
 export { Cookie, MemoryStore, Session, Store };
 export type { CookieData, CookieOptions, SessionData, SessionRequest, StoreCallback };
+/** Session methods and metadata combined with application fields. */
+export type SessionInstance<T extends object = Record<string, unknown>> = Session & T;
 
 export interface HttpSessionRequest extends IncomingMessage, SessionRequest {
   originalUrl?: string;
@@ -53,7 +55,7 @@ const debug = debuglog('express-session');
 const env = process.env.NODE_ENV;
 const defer = setImmediate;
 
-export default Object.assign(session, { Store, Cookie, Session, MemoryStore });
+export const expressSession = Object.assign(session, { Store, Cookie, Session, MemoryStore });
 
 /**
  * Warning message for `MemoryStore` usage in production.
@@ -173,11 +175,7 @@ export function session(options?: SessionOptions): SessionMiddleware {
 
     let incomingId: string | undefined;
     try {
-      incomingId = opts.getid
-        ? opts.getid(req) || undefined
-        : cookieEnabled
-          ? getcookie(req, name)
-          : undefined;
+      incomingId = opts.getid ? opts.getid(req) || undefined : cookieEnabled ? getcookie(req, name) : undefined;
     } catch (error) {
       next(error);
       return;

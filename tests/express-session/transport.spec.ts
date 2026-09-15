@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import type { ServerResponse } from 'node:http';
 import request from 'supertest';
-import session, { Cookie, MemoryStore } from '../../src/express-session/index.ts';
-import type { HttpSessionRequest, SessionOptions } from '../../src/express-session/index.ts';
+import { expressSession as session } from '../../src';
+import { Cookie, MemoryStore } from '../../src/express-session';
+import type { HttpSessionRequest, SessionOptions } from '../../src';
 
 const getid: NonNullable<SessionOptions['getid']> = (req) => {
   const value = req.headers['x-session-id'];
