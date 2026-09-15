@@ -33,17 +33,22 @@ Disabling Cookie does not disable persistence or Store expiry handling.
 
 ## Local test commands
 
-Run these commands from this library directory using Node.js 24 or later:
+From the nestkit repository root, use Node.js 24 or later:
 
 ```sh
-pnpm test
-pnpm run test-cov
+pnpm install
+pnpm test express-session
+pnpm test express-session --coverage --coverage.include="src/express-session/**/*.ts"
 ```
 
-Tests use TypeScript and Node's built-in test runner. Scripts generate the HTTPS
-test certificate with OpenSSL before running `test/*.spec.ts`.
-`test-ci` also uses Node's built-in coverage reporting. No build is required.
-See [Node.js test runner](https://nodejs.org/docs/latest-v24.x/api/test.html).
+The suite lives in `tests/express-session/` and imports implementation files from
+`src/express-session/`. All tests use Vitest with a Node environment and the same
+built-in Vite 8 Oxc transformation used by the library build. `pnpm test` runs the
+entire toolkit suite; `pnpm test express-session` runs only session tests.
+No build is required to run tests. Coverage uses Vitest's V8 provider.
+
+HTTPS tests read the committed certificate and key in `tests/express-session/fixtures/`.
+To regenerate manually, run `sh tests/express-session/fixtures/gencert.sh` from the root.
 
 > Local TypeScript fork: debug logging uses `node:util.debuglog` and `NODE_DEBUG`.
 > With Cookie enabled, configure `secret` explicitly; `req.secret`, `req.cookies`, and `req.signedCookies`
@@ -275,25 +280,8 @@ as once the cookie is set on HTTPS, it will no longer be visible over HTTP. This
 is useful when the Express `"trust proxy"` setting is properly setup to simplify
 development vs production configuration.
 
-##### genid
-
-Function to call to generate a new session ID. Provide a function that returns
-a string that will be used as a session ID. The function is given `req` as the
-first argument if you want to use some value attached to `req` when generating
-the ID.
-
-The default value is a function which uses the `uid-safe` library to generate IDs.
-
-**NOTE** be careful to generate unique IDs so your sessions do not conflict.
-
-```js
-app.use(session({
-  genid: function(req) {
-    return genuuid() // use UUIDs for session IDs
-  },
-  secret: 'keyboard cat'
-}))
-```
+Session IDs are generated internally using Node.js `crypto.randomBytes(24)` and
+encoded as base64url. Custom ID generation is not supported.
 
 ##### name
 
@@ -396,7 +384,7 @@ would best be a random set of characters. A best practice may include:
     array.
 
 Using a secret that cannot be guessed will reduce the ability to hijack a session to
-only guessing the session ID (as determined by the `genid` option).
+only guessing the internally generated random session ID.
 
 Changing the secret value will invalidate all existing sessions. In order to rotate
 the secret without invalidating sessions, provide an array of secrets, with the new

@@ -14,8 +14,6 @@
     "pub": "npm run build && npm publish",
     "test": "vitest run",
     "test:cov": "vitest run --coverage",
-    "test:session": "vitest run tests/express-session",
-    "test:session:cov": "vitest run tests/express-session --coverage --coverage.include=\"src/express-session/**/*.ts\"",
     "test:watch": "vitest"
   },
   "keywords": [

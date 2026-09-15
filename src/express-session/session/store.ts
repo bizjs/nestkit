@@ -1,10 +1,3 @@
-/*!
- * Connect - session - Store
- * Copyright(c) 2010 Sencha Inc.
- * Copyright(c) 2011 TJ Holowaychuk
- * MIT Licensed
- */
-
 import { EventEmitter } from 'node:events';
 import { Cookie } from './cookie';
 import type { CookieOptions } from './cookie.ts';
@@ -31,10 +24,7 @@ export abstract class Store extends EventEmitter {
   // Installed by the session middleware for the configured generator and cookie options.
   declare generate: (request: SessionRequest) => void;
 
-  abstract get(
-    id: string,
-    callback: (error?: unknown, data?: SessionData | null) => void,
-  ): void;
+  abstract get(id: string, callback: (error?: unknown, data?: SessionData | null) => void): void;
 
   abstract set(id: string, data: SessionData, callback?: StoreCallback): void;
   abstract destroy(id: string, callback?: StoreCallback): void;
@@ -46,10 +36,7 @@ export abstract class Store extends EventEmitter {
     });
   }
 
-  load(
-    id: string,
-    callback: (error?: unknown, session?: Session) => void,
-  ): void {
+  load(id: string, callback: (error?: unknown, session?: Session) => void): void {
     this.get(id, (error, data) => {
       if (error) return callback(error);
       if (!data) return callback();

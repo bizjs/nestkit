@@ -26,7 +26,7 @@ review clients that depend on validation error formatting.
 pnpm install --frozen-lockfile
 pnpm build
 pnpm test
-pnpm run test:session
+pnpm test express-session
 pnpm run test:cov
 ```
 

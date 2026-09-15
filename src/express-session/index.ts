@@ -1,20 +1,8 @@
-/*!
- * express-session
- * Copyright(c) 2010 Sencha Inc.
- * Copyright(c) 2011 TJ Holowaychuk
- * Copyright(c) 2014-2015 Douglas Christopher Wilson
- * MIT Licensed
- */
-
 import { Buffer } from 'node:buffer';
-import crypto, { randomBytes } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import type { TLSSocket } from 'node:tls';
-import { parse, serialize } from 'cookie';
-import type { SerializeOptions } from 'cookie';
 import { debuglog } from 'node:util';
 import onHeaders from 'on-headers';
-import signature from 'cookie-signature';
+import { generateSessionId, getcookie, hash, issecure, setcookie } from './utils';
 import { Cookie } from './session/cookie';
 import type { CookieData, CookieOptions } from './session/cookie';
 import { MemoryStore } from './session/memory';
@@ -35,7 +23,6 @@ export interface SessionOptions {
   cookie?: false | CookieOptions | ((request: HttpSessionRequest) => CookieOptions);
   /** Read an unsigned SID. When configured, Cookie is never used as a fallback. */
   getid?: (request: HttpSessionRequest) => string | null | undefined;
-  genid?: (request: HttpSessionRequest) => string;
   name?: string;
   key?: string;
   proxy?: boolean;
@@ -78,7 +65,6 @@ const warning =
  * @param {Object} [options]
  * @param {Object|Function|false} [options.cookie] Cookie options or false to disable transport
  * @param {Function} [options.getid] Read a raw session ID from the request
- * @param {Function} [options.genid]
  * @param {String} [options.name=connect.sid] Session ID cookie name
  * @param {Boolean} [options.proxy]
  * @param {Boolean} [options.resave] Resave unmodified sessions back to the store
@@ -97,9 +83,6 @@ export function session(options?: SessionOptions): SessionMiddleware {
   // get the cookie options
   const cookieEnabled = opts.cookie !== false;
   const cookieOptions = opts.cookie || {};
-
-  // get the session id generate function
-  const generateId = opts.genid || generateSessionId;
 
   // get the session cookie name
   const name = opts.name || opts.key || 'connect.sid';
@@ -127,10 +110,6 @@ export function session(options?: SessionOptions): SessionMiddleware {
       : [configuredSecret]
     : undefined;
 
-  if (typeof generateId !== 'function') {
-    throw new TypeError('genid option must be a function');
-  }
-
   if (opts.unset && opts.unset !== 'destroy' && opts.unset !== 'keep') {
     throw new TypeError('unset option must be "destroy" or "keep"');
   }
@@ -152,7 +131,7 @@ export function session(options?: SessionOptions): SessionMiddleware {
   // generates the new session
   store.generate = function (request) {
     const req = request as HttpSessionRequest;
-    req.sessionID = generateId(req);
+    req.sessionID = generateSessionId();
     req.session = new Session(req);
     const resolvedCookieOptions = typeof cookieOptions === 'function' ? cookieOptions(req) : cookieOptions;
     req.session.cookie = new Cookie(resolvedCookieOptions);
@@ -543,144 +522,4 @@ export function session(options?: SessionOptions): SessionMiddleware {
       next();
     });
   };
-}
-
-/**
- * Generate a session ID for a new session.
- *
- * @return {String}
- * @private
- */
-
-function generateSessionId() {
-  return randomBytes(24).toString('base64url');
-}
-
-/**
- * Get the session ID cookie from request.
- *
- * @return {string}
- * @private
- */
-
-function getcookie(req: HttpSessionRequest, name: string, secrets: string[]) {
-  const header = req.headers.cookie;
-  let raw: string | undefined;
-  let val: string | false | undefined;
-
-  // read from cookie header
-  if (header) {
-    const cookies = parse(header);
-
-    raw = cookies[name];
-
-    if (raw) {
-      if (raw.substr(0, 2) === 's:') {
-        val = unsigncookie(raw.slice(2), secrets);
-
-        if (val === false) {
-          debug('cookie signature invalid');
-          val = undefined;
-        }
-      } else {
-        debug('cookie unsigned');
-      }
-    }
-  }
-
-  return val || undefined;
-}
-
-/**
- * Hash the given `sess` object omitting changes to `.cookie`.
- *
- * @param {Object} sess
- * @return {String}
- * @private
- */
-
-function hash(sess: SessionData) {
-  // serialize
-  const str = JSON.stringify(sess, function (key, val) {
-    // ignore sess.cookie property
-    if (this === sess && key === 'cookie') {
-      return;
-    }
-
-    return val;
-  });
-
-  // hash
-  return crypto.createHash('sha1').update(str, 'utf8').digest('hex');
-}
-
-/**
- * Determine if request is secure.
- *
- * @param {Object} req
- * @param {Boolean} [trustProxy]
- * @return {Boolean}
- * @private
- */
-
-function issecure(req: HttpSessionRequest, trustProxy?: boolean) {
-  // socket is https server
-  if (req.socket && (req.socket as TLSSocket).encrypted) {
-    return true;
-  }
-
-  // do not trust proxy
-  if (trustProxy === false) {
-    return false;
-  }
-
-  // no explicit trust; try req.secure from express
-  if (trustProxy !== true) {
-    return req.secure === true;
-  }
-
-  // read the proto from x-forwarded-proto header
-  const header = (req.headers['x-forwarded-proto'] as string | undefined) || '';
-  const index = header.indexOf(',');
-  const proto = index !== -1 ? header.substr(0, index).toLowerCase().trim() : header.toLowerCase().trim();
-
-  return proto === 'https';
-}
-
-/**
- * Set cookie on response.
- *
- * @private
- */
-
-function setcookie(res: ServerResponse, name: string, val: string, secret: string, options: CookieData) {
-  const signed = 's:' + signature.sign(val, secret);
-  const data = serialize(name, signed, options as SerializeOptions);
-
-  debug('set-cookie %s', data);
-
-  const prev = res.getHeader('Set-Cookie') || [];
-  const header = Array.isArray(prev) ? prev.concat(data) : [String(prev), data];
-
-  res.setHeader('Set-Cookie', header);
-}
-
-/**
- * Verify and decode the given `val` with `secrets`.
- *
- * @param {String} val
- * @param {Array} secrets
- * @returns {String|Boolean}
- * @private
- */
-function unsigncookie(val: string, secrets: string[]) {
-  for (let i = 0; i < secrets.length; i++) {
-    const result = signature.unsign(val, secrets[i]);
-
-    if (result !== false) {
-      return result;
-    }
-  }
-
-  return false;
 }

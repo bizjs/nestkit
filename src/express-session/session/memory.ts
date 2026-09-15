@@ -1,20 +1,10 @@
-/*!
- * express-session
- * Copyright(c) 2010 Sencha Inc.
- * Copyright(c) 2011 TJ Holowaychuk
- * Copyright(c) 2015 Douglas Christopher Wilson
- * MIT Licensed
- */
-
 import { Store } from './store';
 import type { SessionData, StoreCallback } from './store';
 
 export class MemoryStore extends Store {
   sessions: Record<string, string> = Object.create(null);
 
-  all(
-    callback?: (error: unknown, sessions: Record<string, SessionData>) => void,
-  ): void {
+  all(callback?: (error: unknown, sessions: Record<string, SessionData>) => void): void {
     const sessions: Record<string, SessionData> = Object.create(null);
     for (const id of Object.keys(this.sessions)) {
       const session = this.getSession(id);
@@ -33,10 +23,7 @@ export class MemoryStore extends Store {
     if (callback) setImmediate(callback);
   }
 
-  override get(
-    id: string,
-    callback: (error?: unknown, data?: SessionData | null) => void,
-  ): void {
+  override get(id: string, callback: (error?: unknown, data?: SessionData | null) => void): void {
     setImmediate(callback, null, this.getSession(id));
   }
 
@@ -67,9 +54,7 @@ export class MemoryStore extends Store {
     const session: SessionData = JSON.parse(stored);
     if (session.cookie) {
       const expires =
-        typeof session.cookie.expires === 'string'
-          ? new Date(session.cookie.expires)
-          : session.cookie.expires;
+        typeof session.cookie.expires === 'string' ? new Date(session.cookie.expires) : session.cookie.expires;
       if (expires && Number(expires) <= Date.now()) {
         delete this.sessions[id];
         return;

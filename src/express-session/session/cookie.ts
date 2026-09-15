@@ -1,10 +1,3 @@
-/*!
- * Connect - session - Cookie
- * Copyright(c) 2010 Sencha Inc.
- * Copyright(c) 2011 TJ Holowaychuk
- * MIT Licensed
- */
-
 import { serialize } from 'cookie';
 import type { SerializeOptions } from 'cookie';
 
@@ -86,9 +79,7 @@ export class Cookie {
   }
 
   get maxAge(): MaxAge {
-    return this.expires instanceof Date
-      ? this.expires.valueOf() - Date.now()
-      : this.expires;
+    return this.expires instanceof Date ? this.expires.valueOf() - Date.now() : this.expires;
   }
 
   get data(): CookieData {

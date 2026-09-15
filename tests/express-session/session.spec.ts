@@ -1259,63 +1259,12 @@ describe('session()', function () {
     });
   });
 
-  describe('genid option', function () {
-    it('should reject non-function values', function () {
-      assert.throws(session.bind(null, { genid: 'bogus!' }), /genid.*must/);
-    });
-
-    it('should provide default generator', function () {
+  describe('session ID generation', function () {
+    it('should generate a session ID', function () {
       return new Promise<void>((resolve, reject) => {
         const done = (error?: unknown) => (error ? reject(error) : resolve());
 
         request(createServer()).get('/').expect(shouldSetCookie('connect.sid')).expect(200, done);
-      });
-    });
-
-    it('should allow custom function', function () {
-      return new Promise<void>((resolve, reject) => {
-        const done = (error?: unknown) => (error ? reject(error) : resolve());
-
-        function genid() {
-          return 'apple';
-        }
-
-        request(createServer({ genid: genid }))
-          .get('/')
-          .expect(
-            shouldSetCookieToValue('connect.sid', 's%3Aapple.D8Y%2BpkTAmeR0PobOhY4G97PRW%2Bj7bUnP%2F5m6%2FOn1MCU'),
-          )
-          .expect(200, done);
-      });
-    });
-
-    it('should encode unsafe chars', function () {
-      return new Promise<void>((resolve, reject) => {
-        const done = (error?: unknown) => (error ? reject(error) : resolve());
-
-        function genid() {
-          return '%';
-        }
-
-        request(createServer({ genid: genid }))
-          .get('/')
-          .expect(shouldSetCookieToValue('connect.sid', 's%3A%25.kzQ6x52kKVdF35Qh62AWk4ZekS28K5XYCXKa%2FOTZ01g'))
-          .expect(200, done);
-      });
-    });
-
-    it('should provide req argument', function () {
-      return new Promise<void>((resolve, reject) => {
-        const done = (error?: unknown) => (error ? reject(error) : resolve());
-
-        function genid(req: TestRequest) {
-          return req.url;
-        }
-
-        request(createServer({ genid: genid }))
-          .get('/foo')
-          .expect(shouldSetCookieToValue('connect.sid', 's%3A%2Ffoo.paEKBtAHbV5s1IB8B2zPnzAgYmmnRPIqObW4VRYj%2FMQ'))
-          .expect(200, done);
       });
     });
   });

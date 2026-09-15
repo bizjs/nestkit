@@ -1,10 +1,3 @@
-/*!
- * Connect - session - Session
- * Copyright(c) 2010 Sencha Inc.
- * Copyright(c) 2011 TJ Holowaychuk
- * MIT Licensed
- */
-
 import type { Cookie, CookieOptions } from './cookie';
 import type { SessionData, SessionRequest, StoreCallback } from './store';
 
