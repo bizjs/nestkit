@@ -492,7 +492,7 @@ describe('session()', function () {
 
         let store = new session.MemoryStore();
         let server: http.Server = createServer(
-          { store: store, key: 'sessid' },
+          { store: store, name: 'sessid' },
           function (req: TestRequest, res: TestResponse) {
             let isnew = req.session.active === undefined;
             req.session.active = true;
@@ -523,7 +523,7 @@ describe('session()', function () {
 
         let store = new session.MemoryStore();
         let server: http.Server = createServer(
-          { store: store, key: 'sessid' },
+          { store: store, name: 'sessid' },
           function (req: TestRequest, res: TestResponse) {
             let isnew = req.session.active === undefined;
             req.session.active = true;
@@ -1240,27 +1240,6 @@ describe('session()', function () {
         const done = (error?: unknown) => (error ? reject(error) : resolve());
 
         request(createServer()).get('/').expect(shouldSetCookie('connect.sid')).expect(200, done);
-      });
-    });
-  });
-
-  describe('key option', function () {
-    it('should default to "connect.sid"', function () {
-      return new Promise<void>((resolve, reject) => {
-        const done = (error?: unknown) => (error ? reject(error) : resolve());
-
-        request(createServer()).get('/').expect(shouldSetCookie('connect.sid')).expect(200, done);
-      });
-    });
-
-    it('should allow overriding', function () {
-      return new Promise<void>((resolve, reject) => {
-        const done = (error?: unknown) => (error ? reject(error) : resolve());
-
-        request(createServer({ key: 'session_id' }))
-          .get('/')
-          .expect(shouldSetCookie('session_id'))
-          .expect(200, done);
       });
     });
   });
@@ -2907,7 +2886,7 @@ describe('session()', function () {
             req.headers.cookie = 'foo=bar';
             next();
           })
-          .use(createSession({ key: 'sessid' }))
+          .use(createSession({ name: 'sessid' }))
           .use(function (req: TestRequest, res: TestResponse, next) {
             req.session.count = req.session.count || 0;
             req.session.count++;

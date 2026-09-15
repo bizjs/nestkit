@@ -18,18 +18,25 @@ export interface HttpSessionRequest extends IncomingMessage, SessionRequest {
   secure?: boolean;
 }
 
+/** Session middleware configuration. */
 export interface SessionOptions {
   /** false disables SID cookie transport; session.cookie remains expiry metadata. */
   cookie?: false | CookieOptions | ((request: HttpSessionRequest) => CookieOptions);
   /** Read an unsigned SID. When configured, Cookie is never used as a fallback. */
   getid?: (request: HttpSessionRequest) => string | null | undefined;
+  /** Session ID cookie name. Defaults to 'connect.sid'. */
   name?: string;
-  key?: string;
+  /** Trust X-Forwarded-Proto for HTTPS detection. When omitted, use req.secure. */
   proxy?: boolean;
+  /** Save unmodified sessions back to the store. Defaults to true. */
   resave?: boolean;
+  /** Refresh the session cookie on every response. Defaults to false. */
   rolling?: boolean;
+  /** Save new, unmodified sessions to the store. Defaults to true. */
   saveUninitialized?: boolean;
+  /** Session storage. Defaults to a new MemoryStore. */
   store?: Store;
+  /** Keep or destroy stored data when req.session is unset. Defaults to 'keep'. */
   unset?: 'destroy' | 'keep';
 }
 
@@ -58,23 +65,7 @@ const warning =
   'designed for a production environment, as it will leak\n' +
   'memory, and will not scale past a single process.';
 
-/**
- * Setup session store with the given `options`.
- *
- * @param {Object} [options]
- * @param {Object|Function|false} [options.cookie] Cookie options or false to disable transport
- * @param {Function} [options.getid] Read a raw session ID from the request
- * @param {String} [options.name=connect.sid] Session ID cookie name
- * @param {Boolean} [options.proxy]
- * @param {Boolean} [options.resave] Resave unmodified sessions back to the store
- * @param {Boolean} [options.rolling] Enable/disable rolling session expiration
- * @param {Boolean} [options.saveUninitialized] Save uninitialized sessions to the store
- * @param {Object} [options.store=MemoryStore] Session store
- * @param {String} [options.unset]
- * @return {Function} middleware
- * @public
- */
-
+/** Create session middleware. */
 export function session(options?: SessionOptions): SessionMiddleware {
   const opts = options || {};
 
@@ -83,7 +74,7 @@ export function session(options?: SessionOptions): SessionMiddleware {
   const cookieOptions = opts.cookie || {};
 
   // get the session cookie name
-  const name = opts.name || opts.key || 'connect.sid';
+  const name = opts.name || 'connect.sid';
 
   // get the session store
   const store = opts.store || new MemoryStore();
