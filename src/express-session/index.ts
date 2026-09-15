@@ -2,7 +2,7 @@ import { Buffer } from 'node:buffer';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { debuglog } from 'node:util';
 import onHeaders from 'on-headers';
-import { generateSessionId, getcookie, hash, issecure, setcookie } from './utils';
+import { generateSessionId, getcookie, getPathname, hash, issecure, setcookie } from './utils';
 import { Cookie } from './session/cookie';
 import type { CookieData, CookieOptions } from './session/cookie';
 import { MemoryStore } from './session/memory';
@@ -154,16 +154,7 @@ export function session(options?: SessionOptions): SessionMiddleware {
 
     if (cookieEnabled) {
       // pathname mismatch
-      const originalUrl = req.originalUrl || req.url || '/';
-      let originalPath: string;
-      try {
-        // A fixed base needs no Host header; leading // remains an HTTP request path.
-        const base = 'http://localhost';
-        originalPath = new URL(originalUrl.startsWith('/') ? base + originalUrl : originalUrl, base).pathname || '/';
-      } catch (error) {
-        next(error);
-        return;
-      }
+      const originalPath = getPathname(req.originalUrl || req.url || '/');
       const resolvedCookieOptions = typeof cookieOptions === 'function' ? cookieOptions(req) : cookieOptions;
       if (originalPath.indexOf(resolvedCookieOptions.path || '/') !== 0) {
         debug('pathname mismatch');

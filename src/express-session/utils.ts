@@ -105,3 +105,9 @@ export function setcookie(res: ServerResponse, name: string, val: string, option
 
   res.setHeader('Set-Cookie', header);
 }
+
+/** Strip the query string from a request path. */
+export function getPathname(url: string): string {
+  const index = url.indexOf('?');
+  return index === -1 ? url : url.slice(0, index);
+}
