@@ -26,7 +26,18 @@ review clients that depend on validation error formatting.
 pnpm install --frozen-lockfile
 pnpm build
 pnpm test
+pnpm run test:session
+pnpm run test:cov
 ```
+
+Tests use Vitest for both toolkit unit tests and session tests. `pnpm test` runs
+once; `pnpm run test:watch` starts watch mode. HTTPS tests use the committed fixtures.
+
+`pnpm build` uses Vite Library mode to emit CommonJS (`.js`), ESM (`.mjs`),
+source maps, and TypeScript declarations in `dist/`. Dependencies and peer dependencies
+remain external. SWC preserves NestJS legacy decorators and dependency-injection metadata.
+The session library is available through `@bizjs/nestkit/express-session`.
+Existing source module paths remain available under `dist/`.
 
 ## Publishing
 
